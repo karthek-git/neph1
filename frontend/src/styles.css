@@ -168,7 +168,7 @@ textarea.cellin { resize: vertical; min-height: 64px; }
 .chip.st-dismissed { background: transparent; border: 1px solid var(--md-sys-color-outline-variant); color: var(--md-sys-color-on-surface-variant); }
 .tradebar { display: grid; grid-template-columns: minmax(120px, 260px) 1fr 40px; gap: 12px; align-items: center; width: 100%; padding: 6px 4px; background: none; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; border-radius: 8px; }
 .tradebar:hover { background: color-mix(in srgb, var(--md-sys-color-on-surface) 8%, transparent); }
-.tradebar .bar { display: flex; height: 14px; border-radius: 7px; overflow: hidden; background: var(--md-sys-color-surface-container-highest); }
+.tradebar .tbars { display: flex; height: 14px; border-radius: 7px; overflow: hidden; background: var(--md-sys-color-surface-container-highest); }
 .tradebar .b { display: block; height: 100%; }
 .tradebar .b.high { background: var(--md-sys-color-error); } .tradebar .b.medium { background: #e0a000; } .tradebar .b.low { background: #5aa469; }
 .linkbtn { background: none; border: 0; padding: 0; color: var(--md-sys-color-primary); font: inherit; cursor: pointer; text-decoration: underline; }

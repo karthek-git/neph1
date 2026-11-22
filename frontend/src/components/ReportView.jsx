@@ -288,7 +288,7 @@ function Overview({ pid, report: R, triage, setTriage, qstate, goFindings, goQue
         {byTrade.map((x) => (
           <button key={x.trade} className="tradebar" onClick={() => goFindings(R.findings.find((f) => (f.trade || t('General')) === x.trade)?.trade || '')} aria-label={`${x.trade}: ${x.high} ${t('high')}, ${x.medium} ${t('medium')}, ${x.low} ${t('low')}`}>
             <span className="ellipsis tradename">{x.trade}</span>
-            <span className="bar">
+            <span className="tbars">
               <i className="b high" style={{ width: `${(x.high / maxTotal) * 100}%` }} /><i className="b medium" style={{ width: `${(x.medium / maxTotal) * 100}%` }} /><i className="b low" style={{ width: `${(x.low / maxTotal) * 100}%` }} />
             </span>
             <span className="num muted">{x.high + x.medium + x.low}</span>
