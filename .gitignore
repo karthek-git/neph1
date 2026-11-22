@@ -1,0 +1,40 @@
+# ---- Secrets (never commit) ----
+.env
+.env.*
+!.env.example
+
+# ---- Challenge dataset (not ours to redistribute) ----
+ds/
+Challenge A Dataset/
+
+# ---- Runtime data: projects, uploaded files, SQLite database ----
+data/
+
+# ---- Python ----
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ---- Node / frontend ----
+node_modules/
+frontend/node_modules/
+npm-debug.log*
+.vite/
+# frontend/dist is committed on purpose so the app runs with Python only
+
+# ---- Editors and OS ----
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# ---- Logs and scratch files ----
+*.log
+*.tmp
+.check.js
