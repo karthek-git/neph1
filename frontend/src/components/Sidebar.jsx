@@ -89,7 +89,7 @@ export default function Sidebar({ pid, tab, collapsed, onNavigate, onLock }) {
             {collapsed && <NavItem collapsed icon="grid_view" label={t('All projects')} onClick={() => nav()} />}
             <div className="navgroup" hidden={collapsed}>{t('Workspace')}</div>
             {item('files', 'folder_open', t('Files'), current?.files)}
-            {item('items', 'table_rows', t('Parsed items'))}
+            {item('items', 'table_rows', t('Items'))}
             {item('analyses', 'query_stats', t('Analyses'), current?.analyses)}
             <div className="navgroup" hidden={collapsed}>{t('Tools')}</div>
             {item('bid', 'request_quote', t('Bid sheet'))}

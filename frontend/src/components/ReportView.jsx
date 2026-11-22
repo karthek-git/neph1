@@ -364,7 +364,7 @@ export default function ReportView({ pid, aid, analyses = [] }) {
         {B?.coverage?.matched > 0 && <Kpi value={`${B.coverage.matched} / ${B.coverage.candidates}`} label={t('items with price benchmark')} />}
       </KpiRow>
 
-      {(R.unconfirmed_files || []).length > 0 && <Banner kind="warn"><b>{t('Not all items are confirmed.')}</b> {t('These files contain AI-extracted items that nobody has confirmed yet: {names}. Check them in Parsed items.', { names: R.unconfirmed_files.join(', ') })}</Banner>}
+      {(R.unconfirmed_files || []).length > 0 && <Banner kind="warn"><b>{t('Not all items are confirmed.')}</b> {t('These files contain AI-extracted items that nobody has confirmed yet: {names}. Check them in Items.', { names: R.unconfirmed_files.join(', ') })}</Banner>}
       {L.status === 'ok' && <p className="md-typescale-body-medium muted mt16">{t('AI added {n} findings, each checked against the item text.', { n: L.findings })}</p>}
       {L.status === 'no_key' && <Banner kind="warn">{t('No AI key is set on the server, so only the rule-based checks ran.')}</Banner>}
       {(L.status === 'partial' || L.status === 'failed') && <Banner kind="warn">{t('AI analysis did not fully run')}: {(L.errors || []).join(' | ').slice(0, 300)}</Banner>}

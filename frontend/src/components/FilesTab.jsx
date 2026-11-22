@@ -110,7 +110,7 @@ export default function FilesTab({ pid, files, loadFiles, loadAnalyses, loadProj
       setBusy(t('The parser could not read {name}. The AI is extracting its items…', { name: f.name }))
       try {
         const d = await api.files.extract(pid, f.id)
-        out.push(t('{name}: the AI extracted {k} items ({d} dropped because they did not match the text). Please check them in Parsed items.', { name: f.name, k: d.stats.kept, d: d.stats.dropped }))
+        out.push(t('{name}: the AI extracted {k} items ({d} dropped because they did not match the text). Please check them in Items.', { name: f.name, k: d.stats.kept, d: d.stats.dropped }))
       } catch (e) { out.push(`${f.name}: ${e.message}`) }
     }
     return out

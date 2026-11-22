@@ -94,6 +94,10 @@ export default function ParsedItems({ pid, files, aid: fidParam, loadFiles, load
 
   return (
     <div className="col" style={{ gap: 16 }}>
+      <div>
+        <h2 className="md-typescale-headline-small">{t('Items · common format')}</h2>
+        <p className="muted">{t('What Calex read from each file, in one format you can edit.')}</p>
+      </div>
       <div className="row">
         <Select label={t('File')} value={fid} onValue={(v) => go('p', pid, 'items', v)} style={{ minWidth: 280, maxWidth: '100%' }}>
           {withItems.map((x) => <Option key={x.id} value={x.id}>{x.name}</Option>)}
