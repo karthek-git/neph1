@@ -132,3 +132,45 @@ def run_dependency_checks(project: Project) -> list[Finding]:
                     question=f"Zu Pos. {it.oz}: " + r["ask"], question_en=f"Item {it.oz}: " + TR[r["id"]][1], source="rule"))
                 break
     return out
+
+
+# ---- cross-trade quantity consistency: the same physical area should carry the same quantity in each trade ----
+QTY_RULES = [
+    dict(id="screed_vs_floor", a=r"\bEstrich\b", b=r"Bodenbelag|PVC-Belag|Linoleum|Parkett|Teppich|Kautschuk|Designbelag|Vinyl|Fliesenbelag",
+         a_name="screed", b_name="floor covering", a_de="Estrich", b_de="Bodenbelag"),
+    dict(id="roof_insul_vs_seal", a=r"Dachabdichtung|Bitumenbahn|Kunststoffdachbahn", b=r"(Wärmedämmung|Gefälledämmung|Dämmung)[^.]{0,100}Dach|Dach[^.]{0,100}(Wärmedämmung|Gefälledämmung|Dämmung)",
+         a_name="roof waterproofing", b_name="roof insulation", a_de="Dachabdichtung", b_de="Dachdämmung"),
+]
+QTY_TOLERANCE = 0.25      # differences above 25 % are reported
+QTY_MIN = 10.0            # ignore tiny areas (m2)
+
+
+def _sum_m2(items, pattern: str) -> tuple[float, list]:
+    hit = [i for i in items if i.kind == "normal" and i.quantity and i.unit.lower().replace("²", "2") in ("m2", "qm") and re.search(pattern, i.text, flags=re.I)]
+    return sum(i.quantity for i in hit), hit
+
+
+def run_quantity_consistency(project: Project) -> list[Finding]:
+    out: list[Finding] = []
+    for r in QTY_RULES:
+        a_sum, a_items = _sum_m2(project.items, r["a"])
+        b_sum, b_items = _sum_m2(project.items, r["b"])
+        if a_sum < QTY_MIN or b_sum < QTY_MIN:
+            continue
+        if {i.oz for i in a_items} & {i.oz for i in b_items}:      # the same item matching both sides is not a comparison
+            continue
+        diff = abs(a_sum - b_sum) / max(a_sum, b_sum)
+        if diff <= QTY_TOLERANCE:
+            continue
+        first = a_items[0]
+        m = re.search(r["a"], first.text, flags=re.I)
+        fa, fb = f"{a_sum:g}", f"{b_sum:g}"
+        out.append(Finding(
+            category="quantity", severity="medium", oz=first.oz,
+            message=f"The total {r['a_name']} area ({fa} m²) differs from the total {r['b_name']} area ({fb} m²) by {diff:.0%}. They are normally the same area: one of the quantities may be wrong.",
+            quote=_ctx(first.text, m) if m else first.short_text,
+            message_de=f"Die Gesamtfläche {r['a_de']} ({fa} m²) weicht um {diff:.0%} von der Gesamtfläche {r['b_de']} ({fb} m²) ab. Üblicherweise ist es dieselbe Fläche: eine der Mengen könnte falsch sein.",
+            question=f"Zu Pos. {first.oz}: Die Mengen für {r['a_de']} ({fa} m²) und {r['b_de']} ({fb} m²) weichen voneinander ab. Bitte bestätigen Sie die maßgebliche Fläche bzw. erläutern Sie den Unterschied (z. B. Teilflächen ohne {r['b_de']}).",
+            question_en=f"Item {first.oz}: The quantities for {r['a_name']} ({fa} m²) and {r['b_name']} ({fb} m²) differ. Please confirm the correct area or explain the difference (e.g. partial areas without {r['b_name']}).",
+            source="rule"))
+    return out

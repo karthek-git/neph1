@@ -11,7 +11,7 @@ const LLM = { ok: 'AI used', skipped: 'Rules only', no_key: 'Rules only (no key)
 export default function AnalysesTab({ pid, analyses, loadAnalyses, loadProject, setError, aid }) {
   const { t } = useI18n()
   const [removing, setRemoving] = useState(null)
-  if (aid) return <ReportView pid={pid} aid={aid} />
+  if (aid) return <ReportView pid={pid} aid={aid} analyses={analyses} />
 
   const remove = async (a, e) => {
     e.stopPropagation(); setRemoving(a.id)

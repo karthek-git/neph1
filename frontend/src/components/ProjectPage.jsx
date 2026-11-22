@@ -11,8 +11,18 @@ import AnalysesTab from './AnalysesTab.jsx'
 import BidSheet from './BidSheet.jsx'
 import WhatIf from './WhatIf.jsx'
 import Compare from './Compare.jsx'
+import ParsedItems from './ParsedItems.jsx'
 
-const TABS = ['files', 'analyses', 'bid', 'whatif', 'compare']
+function Countdown({ label, date }) {
+  const { t } = useI18n()
+  if (!date) return null
+  const days = Math.ceil((new Date(date + 'T23:59:59') - new Date()) / 86400000)
+  const cls = days < 0 ? 'failed' : days <= 3 ? 'check' : 'neutral'
+  const txt = days < 0 ? t('{n} days overdue', { n: -days }) : days === 0 ? t('today') : days === 1 ? t('tomorrow') : t('in {n} days', { n: days })
+  return <span className={`chip ${cls}`} title={date}>{label}: {new Date(date + 'T12:00:00').toLocaleDateString(undefined, { dateStyle: 'medium' })} · {txt}</span>
+}
+
+const TABS = ['files', 'items', 'analyses', 'bid', 'whatif', 'compare']
 
 export default function ProjectPage({ pid, tab, aid }) {
   const { t } = useI18n()
@@ -46,6 +56,10 @@ export default function ProjectPage({ pid, tab, aid }) {
         <div className="grow">
           <h1 className="md-typescale-headline-medium ellipsis">{project.name}</h1>
           {project.description && <p className="muted">{project.description}</p>}
+          <div className="row gap8">
+            <Countdown label={t('Questions due')} date={project.question_deadline} />
+            <Countdown label={t('Bid due')} date={project.bid_deadline} />
+          </div>
         </div>
         <IconButton icon="edit" label={t('Rename project')} onClick={() => setEditing(true)} />
         <IconButton icon="delete" label={t('Delete project')} onClick={() => setDeleting(true)} />
@@ -53,6 +67,7 @@ export default function ProjectPage({ pid, tab, aid }) {
       <ErrorBox error={error} onClose={() => setError(null)} />
 
       {current === 'files' && <FilesTab {...ctx} />}
+      {current === 'items' && <ParsedItems {...ctx} aid={aid} />}
       {current === 'analyses' && <AnalysesTab {...ctx} aid={aid} />}
       {current === 'bid' && <BidSheet {...ctx} />}
       {current === 'whatif' && <WhatIf {...ctx} />}

@@ -125,3 +125,58 @@ md-outlined-text-field, md-outlined-select { --md-outlined-text-field-container-
 .hint { color: var(--md-sys-color-primary); }
 summary { cursor: pointer; padding: 8px 0; }
 a.link { color: var(--md-sys-color-primary); cursor: pointer; text-decoration: none; }
+
+/* ---- automatic analysis steps ---- */
+.steps { list-style: none; margin: 16px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.steps li { display: flex; align-items: flex-start; gap: 16px; padding: 12px 0; border-top: 1px solid var(--md-sys-color-outline-variant); }
+.steps li:first-child { border-top: 0; }
+.stepicon { width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; flex: none; margin-top: 2px; color: var(--md-sys-color-on-surface-variant); }
+.steps li.done .stepicon { color: var(--md-sys-color-primary); }
+.steps li.error .stepicon { color: var(--md-sys-color-error); }
+.steps li.pending { opacity: .6; }
+table.mini { margin-top: 8px; border-collapse: collapse; font: 400 13px/20px Roboto; }
+table.mini td { padding: 2px 16px 2px 0; }
+
+/* ---- parsed items screen ---- */
+.chip { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 8px; font: 500 12px/16px Roboto; white-space: nowrap; }
+.chip md-icon { --md-icon-size: 16px; }
+.chip.ok { background: var(--calex-success-container); color: var(--calex-on-success-container); }
+.chip.check { background: var(--calex-warning-container); color: var(--calex-on-warning-container); }
+.chip.failed { background: var(--md-sys-color-error-container); color: var(--md-sys-color-on-error-container); }
+.chip.neutral { background: var(--md-sys-color-surface-container-highest); color: var(--md-sys-color-on-surface-variant); }
+.cellin { width: 100%; box-sizing: border-box; font: 400 14px/20px Roboto; color: var(--md-sys-color-on-surface); background: transparent; border: 1px solid transparent; border-radius: 6px; padding: 6px 8px; }
+.cellin:hover { border-color: var(--md-sys-color-outline-variant); }
+.cellin:focus { outline: 2px solid var(--md-sys-color-primary); outline-offset: -1px; background: var(--md-sys-color-surface); }
+.cellin.num { text-align: right; }
+textarea.cellin { resize: vertical; min-height: 64px; }
+.split { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.split.two { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
+.srcpane { border: 1px solid var(--md-sys-color-outline-variant); border-radius: 12px; background: var(--md-sys-color-surface); padding: 12px; max-height: 70vh; overflow: auto; position: sticky; top: 8px; }
+.srcpane pre { margin: 0; white-space: pre-wrap; word-break: break-word; font: 400 12px/18px 'Roboto Mono', ui-monospace, monospace; }
+
+.runlist { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; }
+.runrow { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; border-top: 1px solid var(--md-sys-color-outline-variant); }
+.runrow:first-child { border-top: 0; }
+.runrow.off { opacity: .55; }
+
+.dropzone.compact { width: 100%; max-width: 640px; padding: 20px 16px; gap: 4px; }
+
+/* ---- results: status chips, risk-by-trade bars, print ---- */
+.chip.st-review { background: var(--md-sys-color-surface-container-highest); color: var(--md-sys-color-on-surface-variant); }
+.chip.st-clarify { background: var(--calex-warning-container); color: var(--calex-on-warning-container); }
+.chip.st-reviewed { background: var(--calex-success-container); color: var(--calex-on-success-container); }
+.chip.st-dismissed { background: transparent; border: 1px solid var(--md-sys-color-outline-variant); color: var(--md-sys-color-on-surface-variant); }
+.tradebar { display: grid; grid-template-columns: minmax(120px, 260px) 1fr 40px; gap: 12px; align-items: center; width: 100%; padding: 6px 4px; background: none; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; border-radius: 8px; }
+.tradebar:hover { background: color-mix(in srgb, var(--md-sys-color-on-surface) 8%, transparent); }
+.tradebar .bar { display: flex; height: 14px; border-radius: 7px; overflow: hidden; background: var(--md-sys-color-surface-container-highest); }
+.tradebar .b { display: block; height: 100%; }
+.tradebar .b.high { background: var(--md-sys-color-error); } .tradebar .b.medium { background: #e0a000; } .tradebar .b.low { background: #5aa469; }
+.linkbtn { background: none; border: 0; padding: 0; color: var(--md-sys-color-primary); font: inherit; cursor: pointer; text-decoration: underline; }
+@media print {
+  .bar, nav.nav, .scrim, .drawer, .no-print, md-tabs, .kpis, .banner { display: none !important; }
+  .main { margin-left: 0 !important; }
+  body { background: #fff !important; color: #000 !important; }
+  .card { break-inside: avoid; border: 1px solid #bbb; background: #fff !important; color: #000 !important; }
+}
+
+.tbl tr.grouphead td { background: var(--md-sys-color-surface-container-low); border-top: 1px solid var(--md-sys-color-outline-variant); padding: 10px 12px; }

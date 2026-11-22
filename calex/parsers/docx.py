@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 import zipfile
 import io
-import xml.etree.ElementTree as ET
+from defusedxml import ElementTree as ET
 from ..models import Item, Project
 from .tabular import items_from_rows
 

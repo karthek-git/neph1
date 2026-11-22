@@ -6,6 +6,7 @@ import { useWide } from './common.jsx'
 import ProjectsPage from './components/ProjectsPage.jsx'
 import ProjectPage from './components/ProjectPage.jsx'
 import Sidebar from './components/Sidebar.jsx'
+import CatalogPage from './components/CatalogPage.jsx'
 
 const OPEN = 296
 const RAIL = 80
@@ -55,10 +56,11 @@ function Shell({ children, pid, tab }) {
 export default function App() {
   const parts = useRoute()
   const pid = parts[0] === 'p' ? parts[1] : null
-  const tab = pid ? (parts[2] || 'files') : null
+  const isCatalog = parts[0] === 'catalog'
+  const tab = isCatalog ? 'catalog' : pid ? (parts[2] || 'files') : null
   return (
     <Shell pid={pid} tab={tab}>
-      {pid ? <ProjectPage key={pid} pid={pid} tab={tab} aid={parts[3]} /> : <ProjectsPage />}
+      {isCatalog ? <CatalogPage tab={parts[1]} /> : pid ? <ProjectPage key={pid} pid={pid} tab={tab} aid={parts[3]} /> : <ProjectsPage />}
     </Shell>
   )
 }

@@ -75,10 +75,12 @@ def _norm(s: str) -> str:
     return re.sub(r"\s+", " ", s).strip().lower()
 
 
-def _call(prompt: str, model: str | None = None, retries: int = 6) -> list[LLMFinding]:
+def _call(prompt: str, model: str | None = None, retries: int = 6, system: str | None = None, schema=None) -> list:
     from google.genai import types
     client = _client()
     last: Exception | None = None
+    system = system or SYSTEM
+    schema = schema or LLMFinding
     for attempt in range(retries):
         m = model if (model and attempt == 0 and model not in _dead) else _alive()[0]
         try:
@@ -86,15 +88,15 @@ def _call(prompt: str, model: str | None = None, retries: int = 6) -> list[LLMFi
                 model=m,
                 contents=prompt,
                 config=types.GenerateContentConfig(
-                    system_instruction=SYSTEM,
+                    system_instruction=system,
                     response_mime_type="application/json",
-                    response_schema=list[LLMFinding],
+                    response_schema=list[schema],
                     temperature=0.1,
                     http_options=types.HttpOptions(timeout=60000),
                 ),
             )
             data = json.loads(resp.text or "[]")
-            return [LLMFinding(**d) for d in data]
+            return [schema(**d) for d in data]
         except Exception as e:  # network, quota, parse
             last = e
             msg = str(e)

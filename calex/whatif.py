@@ -28,6 +28,8 @@ def has_real_split(project: Project) -> bool:
 
 def run_whatif(project: Project, scenarios: list[dict], split: dict | None = None, include_optional: bool = True) -> dict:
     items = [i for i in project.items if i.unit_price and i.quantity]
+    outside = {k: {"items": sum(1 for i in items if i.kind == k), "eur": round(sum(i.quantity * i.unit_price for i in items if i.kind == k), 2)}
+               for k in ("optional", "alternative")}
     if not items:
         raise ValueError("This file has no unit prices. What-if analysis needs a priced BoQ (a bid, an award, or an offer).")
     real = has_real_split(project)
@@ -81,7 +83,7 @@ def run_whatif(project: Project, scenarios: list[dict], split: dict | None = Non
         "scenarios": applied,
         "by_trade": [{"trade": t, "baseline": round(v[0], 2), "delta": round(v[1], 2)} for t, v in sorted(trades.items(), key=lambda kv: -abs(kv[1][1]))],
         "top_items": [{"oz": oz, "short_text": by_oz[oz].short_text[:80], "baseline": round(by_oz[oz].quantity * by_oz[oz].unit_price, 2), "delta": round(d, 2)} for oz, d in top],
-        "items_priced": len(items), "include_optional": include_optional,
+        "items_priced": len(items), "include_optional": include_optional, "outside_total": outside,
         "assumptions": ([] if real else ["The file has no per-item cost split. A percentage split of the unit price is assumed (editable); results scale with it."])
                        + ["Scenarios are added together, not compounded. Quantities and other items are unchanged."],
     }

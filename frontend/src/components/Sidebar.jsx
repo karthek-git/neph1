@@ -78,7 +78,9 @@ export default function Sidebar({ pid, tab, collapsed, onNavigate, onLock }) {
                 <Icon slot="icon" name="add" />
               </Fab>
             </div>
-            <NavItem collapsed={collapsed} icon="grid_view" label={t('Projects')} on onClick={() => nav()} />
+            <NavItem collapsed={collapsed} icon="grid_view" label={t('Projects')} on={tab !== 'catalog'} onClick={() => nav()} />
+            <div className="navgroup" hidden={collapsed}>{t('Library')}</div>
+            <NavItem collapsed={collapsed} icon="sell" label={t('Price catalog')} on={tab === 'catalog'} onClick={() => nav('catalog')} />
           </>
         )}
 
@@ -87,11 +89,14 @@ export default function Sidebar({ pid, tab, collapsed, onNavigate, onLock }) {
             {collapsed && <NavItem collapsed icon="grid_view" label={t('All projects')} onClick={() => nav()} />}
             <div className="navgroup" hidden={collapsed}>{t('Workspace')}</div>
             {item('files', 'folder_open', t('Files'), current?.files)}
+            {item('items', 'table_rows', t('Parsed items'))}
             {item('analyses', 'query_stats', t('Analyses'), current?.analyses)}
             <div className="navgroup" hidden={collapsed}>{t('Tools')}</div>
             {item('bid', 'request_quote', t('Bid sheet'))}
             {item('whatif', 'tune', t('What-if'))}
             {item('compare', 'compare_arrows', t('Tender vs award'))}
+            <div className="navgroup" hidden={collapsed}>{t('Library')}</div>
+            <NavItem collapsed={collapsed} icon="sell" label={t('Price catalog')} on={tab === 'catalog'} onClick={() => nav('catalog')} />
           </>
         )}
       </div>

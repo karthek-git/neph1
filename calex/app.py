@@ -15,6 +15,7 @@ from . import benchmarks as bm
 from .samples import SAMPLES, sample_files as _sample_files, read_sample as _read_sample, bench
 from .whatif import run_whatif, PRESETS
 from .api_projects import router as projects_router
+from .api_catalog import router as catalog_router
 import json
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -23,6 +24,7 @@ MAX_BYTES = 30 * 1024 * 1024
 
 app = FastAPI(title="Calex", description="BoQ risk analysis for bidders")
 app.include_router(projects_router)
+app.include_router(catalog_router)
 
 
 def _load_env_file():

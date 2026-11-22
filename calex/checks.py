@@ -6,7 +6,7 @@ import math
 from collections import Counter, defaultdict
 from .models import Item, Project, Finding
 from .parsers import norm_oz
-from .dependencies import run_dependency_checks
+from .dependencies import run_dependency_checks, run_quantity_consistency
 
 # (regex, severity, short label). Matching is case-insensitive on German BoQ text.
 VAGUE = [
@@ -180,4 +180,5 @@ def run_checks(project: Project) -> list[Finding]:
                                  if ratio >= 1 else f"Unusually small quantity {it.quantity:g} {unit} compared with similar items",
                                  question=_Q["quantity"].format(oz=it.oz, qty=f"{it.quantity:g}", unit=unit)))
     f += run_dependency_checks(project)
+    f += run_quantity_consistency(project)
     return f

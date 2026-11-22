@@ -1,7 +1,8 @@
 """Parser for GAEB DA XML (X83/X84/X86), versions 3.1 and 3.2 (namespaces differ, so we match local names)."""
 from __future__ import annotations
 import re
-import xml.etree.ElementTree as ET
+import xml.etree.ElementTree as ET   # types only
+from defusedxml import ElementTree as SafeET   # parsing of uploaded files (no entity expansion)
 from ..models import Item, Project
 
 
@@ -68,9 +69,9 @@ def _num(s: str | None) -> float | None:
 
 def parse_gaeb_xml(path_or_bytes, name: str = "") -> Project:
     if isinstance(path_or_bytes, (bytes, bytearray)):
-        root = ET.fromstring(path_or_bytes)
+        root = SafeET.fromstring(path_or_bytes)
     else:
-        root = ET.parse(path_or_bytes).getroot()
+        root = SafeET.parse(path_or_bytes).getroot()
         name = name or str(path_or_bytes).split("/")[-1]
 
     proj = Project(source=name)

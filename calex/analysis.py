@@ -1,5 +1,6 @@
 """Pipeline: parse result -> rule checks -> optional LLM -> dedupe -> scoring -> report dict."""
 from __future__ import annotations
+import hashlib
 import re
 from collections import Counter, defaultdict
 from .models import Project, Finding, Item
@@ -21,6 +22,12 @@ CATEGORY_LABEL = {
 }
 REPEAT_MIN = 8
 CHANGE_ORDER_CATS = {"optional", "vague", "interface", "quantity", "lump_sum", "risk_transfer", "missing", "contradiction"}
+
+
+def finding_id(oz: str, category: str, quote: str, message: str) -> str:
+    """Stable id of a finding: the same issue on the same item keeps its id across re-runs (used for triage and for 'changes since')."""
+    basis = re.sub(r"\W+", "", (quote or message).lower())[:40]
+    return hashlib.sha1(f"{oz}|{category}|{basis}".encode()).hexdigest()[:10]
 
 
 def _level(score: int) -> str:
@@ -87,7 +94,7 @@ def analyze_project(project: Project, use_llm: bool = True, progress=None, bench
     flat = []
     for r in item_rows:
         for f in r["findings"]:
-            flat.append({**f, "trade": r["trade"], "section": r["section"], "item_score": r["score"],
+            flat.append({**f, "id": finding_id(f["oz"], f["category"], f["quote"], f["message"]), "trade": r["trade"], "section": r["section"], "item_score": r["score"],
                          "category_label": CATEGORY_LABEL.get(f["category"], f["category"]),
                          "category_label_de": CATEGORY_LABEL_DE.get(f["category"], f["category"])})
     flat.sort(key=lambda f: (-SEV_W[f["severity"]], 0 if f["source"] == "llm" else 1, -f["item_score"]))
@@ -102,13 +109,14 @@ def analyze_project(project: Project, use_llm: bool = True, progress=None, bench
         if k in seen:
             continue
         seen.add(k)
-        q_by_trade[f["trade"] or "General"].append({"oz": f["oz"], "severity": f["severity"], "category": f["category_label"],
+        q_by_trade[f["trade"] or "General"].append({"fid": f["id"], "oz": f["oz"], "severity": f["severity"], "category": f["category_label"],
                                                       "category_de": f["category_label_de"], "question": f["question"],
                                                       "question_en": f.get("question_en") or "", "quote": f["quote"]})
     for (cat, msg), fs in patterns.items():
         ex = ", ".join(f.oz for f in fs[:5])
         first = fs[0]
         q_by_trade["General"].append({
+            "fid": "p" + hashlib.sha1(f"{cat}|{msg}".encode()).hexdigest()[:9],
             "oz": f"{len(fs)} items", "severity": "medium", "category": CATEGORY_LABEL.get(cat, cat),
             "category_de": CATEGORY_LABEL_DE.get(cat, cat),
             "question": f"Zu mehreren Positionen (z. B. {ex}; insgesamt {len(fs)}): {first.message_de or msg}. Bitte bestätigen Sie, welcher Leistungsumfang bzw. welche Kosten damit gemeint sind und ob dies für alle diese Positionen gilt.",
@@ -127,6 +135,27 @@ def analyze_project(project: Project, use_llm: bool = True, progress=None, bench
         price = hints_for(project, bench)
         for r in item_rows:
             r["price_hint"] = price["hints"].get(r["oz"])
+    # Indicative change-order exposure: if the quantities of the likely change-order items deviate by 10 % (the VOB/B §2(3) threshold),
+    # what is that worth? Uses the file's own prices, else benchmark prices; items without any price are counted separately.
+    exp_eur, priced, unpriced, bases = 0.0, 0, 0, set()
+    for r in item_rows:
+        if not r["change_order_likely"]:
+            continue
+        it = items_by_oz.get(r["oz"])
+        value, basis = None, ""
+        if it and it.total_price:
+            value, basis = it.total_price, "file"
+        elif it and it.unit_price and it.quantity:
+            value, basis = it.unit_price * it.quantity, "file"
+        elif it and it.quantity and r.get("price_hint"):
+            value, basis = r["price_hint"]["median"] * it.quantity, "benchmark"
+        r["exposure"] = round(0.10 * value, 2) if value else None
+        if value:
+            exp_eur += 0.10 * value; priced += 1; bases.add(basis)
+        else:
+            unpriced += 1
+    exposure = {"eur": round(exp_eur, 2), "items_priced": priced, "items_unpriced": unpriced,
+                "basis": "mixed" if len(bases) > 1 else (next(iter(bases)) if bases else "none"), "deviation_pct": 10}
     sev = Counter(f["severity"] for f in flat)
     total_score = sum(r["score"] for r in item_rows)
     n_items = max(1, len(project.items))
@@ -141,7 +170,7 @@ def analyze_project(project: Project, use_llm: bool = True, progress=None, bench
             "overall": overall, "findings": len(flat), "severity": dict(sev),
             "categories": dict(Counter(f["category_label"] for f in flat)),
             "categories_de": dict(Counter(f["category_label_de"] for f in flat)),
-            "items_flagged": len(item_rows), "items_high": sum(1 for r in item_rows if r["level"] == "high"),
+            "exposure": exposure, "items_flagged": len(item_rows), "items_high": sum(1 for r in item_rows if r["level"] == "high"),
             "change_order_items": sum(1 for r in item_rows if r["change_order_likely"]),
             "by_trade": [{"trade": t or "General", "findings": c} for t, c in Counter(f["trade"] for f in flat).most_common()],
             "top": flat[:10],
@@ -195,10 +224,42 @@ def compare(tender: Project, award: Project, tender_report: dict | None = None) 
         if ti and ((ti.quantity or 0) != (it.quantity or 0) or ti.unit != it.unit):
             changed.append({"oz": it.oz, "short_text": it.short_text, "tender": f"{ti.quantity:g} {ti.unit}" if ti.quantity is not None else "",
                             "award": f"{it.quantity:g} {it.unit}" if it.quantity is not None else ""})
+    norm = lambda s: re.sub(r"\s+", " ", s or "").strip().lower()
+    text_changed = [{"oz": it.oz, "old": ti.short_text, "new": it.short_text} for k, it in a.items()
+                    if (ti := t.get(k)) and norm(ti.short_text) != norm(it.short_text)]
+    price_changed = [{"oz": it.oz, "short_text": it.short_text, "old": ti.unit_price, "new": it.unit_price,
+                      "pct": round((it.unit_price - ti.unit_price) / ti.unit_price * 100, 1) if ti.unit_price else None}
+                     for k, it in a.items() if (ti := t.get(k)) and ti.unit_price is not None and it.unit_price is not None and abs(ti.unit_price - it.unit_price) > 0.004]
+    tot = lambda p: round(sum(i.total_price or 0 for i in p.items), 2) or None
     linked = [x for x in added if x["closest_tender_item"]]
     flagged = [x for x in linked if x["closest_tender_item"]["tender_findings"] > 0]
     return {
         "tender": {"source": tender.source, "items": len(tender.items)}, "award": {"source": award.source, "items": len(award.items)},
-        "added": added, "removed": removed, "changed": changed,
+        "added": added, "removed": removed, "changed": changed, "text_changed": text_changed, "price_changed": price_changed,
+        "totals": {"old": tot(tender), "new": tot(award)},
         "backtest": {"added": len(added), "with_related_tender_item": len(linked), "related_item_was_flagged": len(flagged)},
     }
+
+
+def diff_reports(new: dict, base: dict) -> dict:
+    """Findings that are new, resolved or unchanged between two analyses (matched by stable finding id)."""
+    a = {f["id"]: f for f in new["findings"] if "id" in f}
+    b = {f["id"]: f for f in base["findings"] if "id" in f}
+    trim = lambda f: {k: f.get(k) for k in ("id", "oz", "severity", "category_label", "category_label_de", "message", "message_de", "quote", "trade")}
+    return {"new": [trim(f) for k, f in a.items() if k not in b], "resolved": [trim(f) for k, f in b.items() if k not in a],
+            "unchanged": sum(1 for k in a if k in b),
+            "high_new": sum(1 for k, f in a.items() if k not in b and f["severity"] == "high"),
+            "high_resolved": sum(1 for k, f in b.items() if k not in a and f["severity"] == "high")}
+
+
+def ensure_ids(report: dict) -> dict:
+    """Reports saved before finding ids existed get them on load, so triage and 'changes' work for old analyses too."""
+    fs = report.get("findings", [])
+    if fs and "id" in fs[0] and all("fid" in q for q in report.get("questions", [])):
+        return report
+    for f in fs:
+        f.setdefault("id", finding_id(f["oz"], f["category"], f.get("quote", ""), f.get("message", "")))
+    by = {(f["oz"], f.get("category_label"), f.get("quote")): f["id"] for f in fs}
+    for q in report.get("questions", []):
+        q.setdefault("fid", by.get((q["oz"], q.get("category"), q.get("quote"))) or "q" + hashlib.sha1(q["no"].encode()).hexdigest()[:9])
+    return report

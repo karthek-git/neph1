@@ -30,10 +30,10 @@ def tokens(item_text: str) -> frozenset:
 
 
 class Entry:
-    __slots__ = ("source", "oz", "text", "unit", "up", "tok", "project")
+    __slots__ = ("source", "oz", "text", "unit", "up", "tok", "project", "boost")
 
-    def __init__(self, source, oz, text, unit, up, tok, project):
-        self.source, self.oz, self.text, self.unit, self.up, self.tok, self.project = source, oz, text, unit, up, tok, project
+    def __init__(self, source, oz, text, unit, up, tok, project, boost=1.0):
+        self.source, self.oz, self.text, self.unit, self.up, self.tok, self.project, self.boost = source, oz, text, unit, up, tok, project, boost
 
 
 class Benchmarks:
@@ -67,7 +67,7 @@ class Benchmarks:
             ta, tb = {t for t in tok if t[:2] in ("dn", "pn")}, {t for t in e.tok if t[:2] in ("dn", "pn")}
             if ta and tb and ta != tb:
                 sim *= 0.4
-            scored.append((sim, e))
+            scored.append((min(1.0, sim * e.boost), e))
         scored.sort(key=lambda x: -x[0])
         top = [(s, e) for s, e in scored[:k] if s >= 0.3]
         if not top or (len(top) < 2 and top[0][0] < 0.6):
@@ -108,9 +108,10 @@ def group_key(p: Project) -> str:
     return f"{len(p.items)}|{round(sum(i.total_price or 0 for i in p.items))}"
 
 
-def hints_for(project: Project, bench: Benchmarks) -> dict:
-    """Indicative unit-price ranges for items that have no price yet."""
-    own = group_key(project)
+def hints_for(project: Project, bench: Benchmarks, include_own: bool = False) -> dict:
+    """Indicative unit-price ranges for items that have no price yet. The project's own BoQ (same size and total) is excluded
+    unless include_own is set, because a tender matched with its own award proves nothing."""
+    own = None if include_own else group_key(project)
     hints, indicative = {}, 0.0
     candidates = [i for i in project.items if not i.unit_price and i.kind not in ("hourly", "lump_sum")]
     for it in candidates:
@@ -122,6 +123,7 @@ def hints_for(project: Project, bench: Benchmarks) -> dict:
     return {
         "hints": hints,
         "coverage": {"matched": len(hints), "candidates": len(candidates),
-                     "history_items": len(bench.entries), "history_projects": len({e.project for e in bench.entries})},
+                     "history_items": len(bench.entries), "history_projects": len({e.project for e in bench.entries}),
+                     "sources": sorted({e.source.split(" · ")[0] for e in bench.entries})},
         "indicative_total": round(indicative, 2) if hints else None,
     }

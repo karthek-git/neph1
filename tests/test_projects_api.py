@@ -153,3 +153,129 @@ def test_excel_and_word_upload_and_analysis_through_the_api(client):
     assert a.status_code == 201 and a.json()["summary"]["items"] == 5
     bad = client.post(f"/api/projects/{pid}/files", files=[("files", ("alt.xls", b"x", "application/vnd.ms-excel"))])
     assert bad.status_code == 415
+
+
+def test_same_boq_at_two_stages_is_not_merged_without_confirmation(client):
+    pid = mk(client)
+    a = up(client, pid, ("tender.X83", FLOOR)).json()["files"][0]["id"]
+    b = up(client, pid, ("tender_copy.X83", FLOOR)).json()["files"][0]["id"]    # same items and texts again
+    r = client.post(f"/api/projects/{pid}/analyses", json={"file_ids": [a, b], "use_llm": False})
+    assert r.status_code == 409
+    d = r.json()["detail"]
+    assert d["code"] == "overlap" and d["pairs"][0]["ratio"] >= 0.6 and {d["pairs"][0]["a_id"], d["pairs"][0]["b_id"]} == {a, b}
+    ok = client.post(f"/api/projects/{pid}/analyses", json={"file_ids": [a, b], "use_llm": False, "allow_overlap": True})
+    assert ok.status_code == 201 and ok.json()["summary"]["items"] == 10          # confirmed: both lists are merged
+    single = client.post(f"/api/projects/{pid}/analyses", json={"file_ids": [a], "use_llm": False})
+    assert single.status_code == 201
+
+
+def test_different_trades_with_the_same_item_numbers_are_not_overlaps(client):
+    pid = mk(client)
+    ids = [f["id"] for f in up(client, pid, ("boden.X83", FLOOR), ("estrich.X83", SCREED)).json()["files"]]   # same numbering, different texts
+    r = client.post(f"/api/projects/{pid}/analyses", json={"file_ids": ids, "use_llm": False})
+    assert r.status_code == 201
+
+
+def _award_of(tender: bytes) -> bytes:
+    """The same BoQ as an award with unit prices (what a later stage of one tender looks like)."""
+    import re
+    x = tender.decode().replace("<DP>83</DP>", "<DP>86</DP>")
+    return re.sub(r"(<QU>[^<]*</QU>)", r"\1<UP>10.0</UP><IT>1000.0</IT>", x).encode()
+
+
+def test_plan_tender_only_runs_just_the_risk_analysis(client):
+    pid = mk(client)
+    fid = up(client, pid, ("boden.X83", FLOOR)).json()["files"][0]["id"]
+    p = client.get(f"/api/projects/{pid}/plan").json()
+    assert p["risk"]["file_ids"] == [fid] and p["compare"] == [] and p["whatif"] == [] and p["already_done"] is None
+    client.post(f"/api/projects/{pid}/analyses", json={"file_ids": [fid], "use_llm": False})
+    assert client.get(f"/api/projects/{pid}/plan").json()["already_done"]["use_llm"] is False
+
+
+def test_plan_tender_plus_award_adds_compare_and_whatif_but_keeps_the_award_out_of_the_risk_run(client):
+    pid = mk(client)
+    ids = [f["id"] for f in up(client, pid, ("tender.X83", FLOOR), ("award.X86", _award_of(FLOOR))).json()["files"]]
+    p = client.get(f"/api/projects/{pid}/plan").json()
+    assert p["risk"]["file_ids"] == [ids[0]]                                   # only the tender is risk-analysed
+    assert [(c["tender_id"], c["later_id"]) for c in p["compare"]] == [(ids[0], ids[1])]
+    assert [w["file_id"] for w in p["whatif"]] == [ids[1]] and p["later"][0]["phase"] == "award"
+
+
+def test_plan_for_several_different_trades_analyses_them_together_and_does_not_compare(client):
+    pid = mk(client)
+    ids = [f["id"] for f in up(client, pid, ("boden.X83", FLOOR), ("estrich.X83", SCREED)).json()["files"]]
+    p = client.get(f"/api/projects/{pid}/plan").json()
+    assert set(p["risk"]["file_ids"]) == set(ids) and p["compare"] == [] and p["duplicates"] == []
+
+
+def test_plan_ignores_a_duplicate_upload_and_handles_an_empty_project(client):
+    pid = mk(client)
+    assert client.get(f"/api/projects/{pid}/plan").json()["risk"]["file_ids"] == []
+    a = up(client, pid, ("a.X83", FLOOR)).json()["files"][0]["id"]
+    up(client, pid, ("a_copy.X83", FLOOR))
+    p = client.get(f"/api/projects/{pid}/plan").json()
+    assert p["risk"]["file_ids"] == [a] and p["duplicates"][0]["ignored"] == "a_copy.X83"
+    assert client.get("/api/projects/nope/plan").status_code == 404
+
+
+def _benchmarks_for(boq_bytes):
+    from calex.benchmarks import Benchmarks
+    from calex.parsers import parse_file
+    from calex.models import Project
+    pr = parse_file("hist.X83", boq_bytes)
+    for n, it in enumerate(pr.items):
+        it.unit_price = 10.0 + n
+    b = Benchmarks()
+    b.add_project(Project(items=pr.items, source="history.X84"), "history.X84", group="other-project")
+    return b
+
+
+def test_whatif_on_a_tender_needs_prices_and_uses_bid_prices_or_benchmarks(client, monkeypatch):
+    from calex import api_projects
+    pid = mk(client)
+    fid = up(client, pid, ("tender.X83", FLOOR)).json()["files"][0]["id"]
+    scen = [{"component": "price", "pct": 10}]
+    # nothing priced yet: a clear message that says what to do
+    r = client.post(f"/api/projects/{pid}/whatif", json={"file_id": fid, "scenarios": scen})
+    assert r.status_code == 422 and "Bid sheet" in r.json()["detail"]
+    # indicative benchmark prices
+    monkeypatch.setattr(api_projects, "bench", lambda: _benchmarks_for(FLOOR))
+    b = client.post(f"/api/projects/{pid}/whatif", json={"file_id": fid, "scenarios": scen, "use_benchmark": True}).json()
+    assert b["basis"]["benchmark_items"] >= 2 and b["basis"]["bid_items"] == 0 and b["baseline"] > 0
+    # the user's own bid prices win over benchmarks
+    sheet = client.get(f"/api/projects/{pid}/files/{fid}/bidsheet").json()
+    client.put(f"/api/projects/{pid}/files/{fid}/bidsheet", json={"prices": {i["oz"]: 5.0 for i in sheet["items"]}, "markup": 0})
+    both = client.post(f"/api/projects/{pid}/whatif", json={"file_id": fid, "scenarios": scen, "use_bid": True, "use_benchmark": True}).json()
+    assert both["basis"]["bid_items"] == 5 and both["basis"]["benchmark_items"] == 0
+
+
+def test_plan_for_a_tender_picks_bid_prices_then_benchmarks_or_reports_blocked(client, monkeypatch):
+    from calex import api_projects
+    pid = mk(client)
+    fid = up(client, pid, ("tender.X83", FLOOR)).json()["files"][0]["id"]
+    monkeypatch.setattr(api_projects, "bench", lambda: _benchmarks_for(SCREED))          # history of a different BoQ: no matches
+    p = client.get(f"/api/projects/{pid}/plan").json()
+    assert p["whatif"] == [] and p["whatif_blocked"] == [{"name": "tender.X83", "reason": "no_prices"}] and p["estimates"] == []
+    monkeypatch.setattr(api_projects, "bench", lambda: _benchmarks_for(FLOOR))
+    p = client.get(f"/api/projects/{pid}/plan").json()
+    assert p["estimates"][0]["matched"] >= 2 and p["estimates"][0]["total"] > 0
+    assert p["whatif"] == [] or p["whatif"][0]["basis"] == "benchmark"       # only 5 items: below the 10-item bar for an automatic what-if
+    sheet = client.get(f"/api/projects/{pid}/files/{fid}/bidsheet").json()
+    client.put(f"/api/projects/{pid}/files/{fid}/bidsheet", json={"prices": {i["oz"]: 7.0 for i in sheet["items"]}, "markup": 0})
+    p = client.get(f"/api/projects/{pid}/plan").json()
+    assert p["whatif"][0]["basis"] == "bid" and p["whatif_blocked"] == []
+
+
+def test_a_single_stray_benchmark_match_is_not_shown_as_an_estimate(client, monkeypatch):
+    from calex import api_projects
+    from calex.benchmarks import Benchmarks
+    from calex.models import Item, Project
+    pid = mk(client)
+    words = [f"{chr(97 + n // 26)}{chr(97 + n % 26)}xyzwort" for n in range(30)]        # 30 items with distinct vocabulary
+    items = [(f"{n + 1:04d}", f"Leistung {w}", f"Bauteil {w} einbauen", 10 + n, "m2") for n, w in enumerate(words)]
+    up(client, pid, ("big.X83", x83("Gross", items)))
+    b = Benchmarks()
+    b.add_project(Project(items=[Item("9.9", f"Leistung {words[4]}", f"Bauteil {words[4]} einbauen", 1, "m2", unit_price=42.0)]), "h.X84", group="other")
+    monkeypatch.setattr(api_projects, "bench", lambda: b)
+    p = client.get(f"/api/projects/{pid}/plan").json()
+    assert p["estimates"] == [] and p["whatif"] == [] and p["whatif_blocked"][0]["reason"] == "no_prices"

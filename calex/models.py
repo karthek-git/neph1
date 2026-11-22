@@ -42,6 +42,18 @@ class Project:
     sections: dict[str, str] = field(default_factory=dict)  # dotted id -> title
     notes: list[str] = field(default_factory=list)          # warnings shown in the report (e.g. OCR used)
 
+    def to_payload(self) -> dict:
+        """JSON-safe form stored in the database (items without the derived 'text' field)."""
+        d = asdict(self)
+        return d
+
+    @classmethod
+    def from_payload(cls, d: dict) -> "Project":
+        fields = Item.__dataclass_fields__
+        items = [Item(**{k: v for k, v in i.items() if k in fields}) for i in d.get("items", [])]
+        return cls(name=d.get("name", ""), phase=d.get("phase", ""), source=d.get("source", ""), currency=d.get("currency", "EUR"),
+                   preamble=d.get("preamble", ""), items=items, sections=dict(d.get("sections") or {}), notes=list(d.get("notes") or []))
+
 
 @dataclass
 class Finding:
