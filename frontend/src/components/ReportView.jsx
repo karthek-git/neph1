@@ -2,7 +2,7 @@ import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { api, download } from '../api.js'
 import { go } from '../router.js'
 import { useI18n } from '../i18n.jsx'
-import { Banner, Button, Checkbox, CircularProgress, ErrorBox, Icon, IconButton, Kpi, KpiRow, Option, PrimaryTab, Select, TabsEl, TextField } from '../m3/ui.jsx'
+import { Banner, Button, Checkbox, CircularProgress, ErrorBox, Icon, IconButton, Kpi, KpiRow, Option, PrimaryTab, Select, Switch, TabsEl, TextField } from '../m3/ui.jsx'
 import { Highlight, SevChip, fmt, fmtDate } from '../common.jsx'
 
 const STATUSES = ['review', 'clarify', 'reviewed', 'dismissed']
@@ -20,23 +20,25 @@ function StatusSelect({ id, triage, setTriage, compact }) {
   )
 }
 
-function Findings({ report, triage, setTriage, tradeInit, onTradeUsed }) {
+function Findings({ report, triage, setTriage, tradeInit, onTradeUsed, coInit, onCoUsed }) {
   const { t, lang } = useI18n()
   const [sev, setSev] = useState('')
   const [cat, setCat] = useState('')
   const [trade, setTrade] = useState(tradeInit || '')
   const [status, setStatus] = useState('')
   const [showDismissed, setShowDismissed] = useState(false)
+  const [coOnly, setCoOnly] = useState(!!coInit)
   const [q, setQ] = useState('')
   const [open, setOpen] = useState(null)
   const [shown, setShown] = useState(40)
   useEffect(() => { if (tradeInit) { setTrade(tradeInit); onTradeUsed?.() } }, [tradeInit]) // eslint-disable-line
+  useEffect(() => { if (coInit) { setCoOnly(true); onCoUsed?.() } }, [coInit]) // eslint-disable-line
   const items = useMemo(() => Object.fromEntries(report.items.map((i) => [i.oz, i])), [report])
   const label = (f) => (lang === 'de' ? f.category_label_de : f.category_label)
   const cats = useMemo(() => [...new Set(report.findings.map(label))].sort(), [report, lang]) // eslint-disable-line
   const trades = useMemo(() => [...new Set(report.findings.map((f) => f.trade).filter(Boolean))].sort(), [report])
   const rows = report.findings.filter((f) =>
-    (!sev || f.severity === sev) && (!cat || label(f) === cat) && (!trade || f.trade === trade) &&
+    (!coOnly || items[f.oz]?.change_order_likely) && (!sev || f.severity === sev) && (!cat || label(f) === cat) && (!trade || f.trade === trade) &&
     (status ? stOf(triage, f.id) === status : (showDismissed || stOf(triage, f.id) !== 'dismissed')) &&
     (!q || `${f.oz} ${f.message} ${f.quote} ${items[f.oz]?.short_text || ''}`.toLowerCase().includes(q.toLowerCase())))
   const hidden = report.findings.filter((f) => stOf(triage, f.id) === 'dismissed').length
@@ -60,6 +62,7 @@ function Findings({ report, triage, setTriage, tradeInit, onTradeUsed }) {
           <Option value="">{t('All statuses')}</Option>
           {STATUSES.map((s) => <Option key={s} value={s}>{t(STATUS_LABEL[s])}</Option>)}
         </Select>
+        <label className="row gap8"><Switch selected={coOnly} onValue={(v) => { setCoOnly(v); setShown(40) }} aria-label={t('Only likely change-order items')} />{t('Only likely change-order items')}</label>
         <TextField label={t('Search')} placeholder={t('Search item or text…')} value={q} onValue={(v) => { setQ(v); setShown(40) }} style={{ flex: 1, minWidth: 220 }}><Icon slot="leading-icon" name="search" /></TextField>
         <span className="muted">{t('{n} findings', { n: rows.length })}</span>
         {hidden > 0 && !status && <Button variant="text" onClick={() => setShowDismissed((v) => !v)}>{showDismissed ? t('Hide dismissed') : t('Show {n} dismissed', { n: hidden })}</Button>}
@@ -241,6 +244,7 @@ function Overview({ pid, report: R, triage, setTriage, qstate, goFindings, goQue
   const live = R.findings.filter((f) => stOf(triage, f.id) !== 'dismissed')
   const count = (s) => R.findings.filter((f) => stOf(triage, f.id) === s).length
   const top = live.slice(0, 5)
+  const co = R.items.filter((i) => i.change_order_likely).sort((a, b) => (b.exposure ?? -1) - (a.exposure ?? -1) || b.score - a.score)
   const qs = R.questions.filter((q) => stOf(triage, q.fid) !== 'dismissed').slice(0, 3)
   const byTrade = useMemo(() => {
     const m = {}
@@ -268,6 +272,22 @@ function Overview({ pid, report: R, triage, setTriage, qstate, goFindings, goQue
               {E.items_unpriced > 0 && ` ${t('{u} items have no price and are not included.', { u: E.items_unpriced })}`} {t('This is an estimate of the order of magnitude, not a forecast.')}</p>
           </>
         ) : <p className="muted mt8">{t('No prices are available for the change-order items, so no money impact can be shown. Enter your prices in the Bid sheet or add a priced file.')}</p>}
+      </div>
+
+      <div className="card">
+        <h3 className="md-typescale-title-medium">{t('Likely change-order items')} ({co.length})</h3>
+        <p className="muted mt8 mb8">{t('Items where unclear scope, optional work, work in other trades or risk shifted to you could later be paid as extras. Clarify them before you price.')}</p>
+        {co.length === 0 && <p className="muted">{t('No item stands out as a likely change order.')}</p>}
+        {co.slice(0, 8).map((i) => (
+          <div key={i.oz} className="row" style={{ flexWrap: 'nowrap', padding: '8px 0', borderTop: '1px solid var(--md-sys-color-outline-variant)' }}>
+            <div className="grow">
+              <div><b>{i.oz}</b> · {i.short_text}</div>
+              <div className="row gap8 mt8">{[...new Set(R.findings.filter((x) => x.oz === i.oz).map((x) => (lang === 'de' ? x.category_label_de : x.category_label)).filter(Boolean))].slice(0, 4).map((c) => <span key={c} className="chip neutral">{c}</span>)}</div>
+            </div>
+            <span className="num nowrap" style={{ textAlign: 'right' }}>{i.exposure != null ? <><b>≈ {fmt(i.exposure, 0)} EUR</b><span className="md-typescale-body-small muted" style={{ display: 'block' }}>{t('at 10 % quantity change')}</span></> : <span className="muted">{t('no price')}</span>}</span>
+          </div>
+        ))}
+        {co.length > 0 && <div className="mt8"><Button variant="text" onClick={() => goFindings('', true)}>{co.length > 8 ? t('Show all {n} in Findings', { n: co.length }) : t('Show in Findings')}</Button></div>}
       </div>
 
       <div className="card">
@@ -321,6 +341,7 @@ export default function ReportView({ pid, aid, analyses = [] }) {
   const [triage, setTriageState] = useState({})
   const [qstate, setQState] = useState({})
   const [tradeInit, setTradeInit] = useState('')
+  const [coInit, setCoInit] = useState(false)
   useEffect(() => { setData(null); setTab(0); api.analyses.get(pid, aid).then(setData).catch(setError) }, [pid, aid])
   useEffect(() => { api.triage.get(pid).then(setTriageState).catch(() => {}); api.qstate.get(pid).then(setQState).catch(() => {}) }, [pid])
 
@@ -338,7 +359,7 @@ export default function ReportView({ pid, aid, analyses = [] }) {
   const { meta, report: R } = data
   const S = R.summary, L = R.llm, B = R.benchmarks
   const exportXlsx = async () => download(await api.exportReport(R), 'calex-report.xlsx')
-  const goFindings = (trade) => { setTradeInit(trade); setTab(1) }
+  const goFindings = (trade, co = false) => { setTradeInit(trade); setCoInit(co); setTab(1) }
   const open = R.findings.filter((f) => stOf(triage, f.id) === 'review').length
 
   return (
@@ -380,7 +401,7 @@ export default function ReportView({ pid, aid, analyses = [] }) {
         <PrimaryTab>{t('Changes')}</PrimaryTab>
       </TabsEl>
       {tab === 0 && <Overview pid={pid} report={R} triage={triage} setTriage={setTriage} qstate={qstate} goFindings={goFindings} goQuestions={() => setTab(2)} />}
-      {tab === 1 && <Findings report={R} triage={triage} setTriage={setTriage} tradeInit={tradeInit} onTradeUsed={() => setTradeInit('')} />}
+      {tab === 1 && <Findings report={R} triage={triage} setTriage={setTriage} tradeInit={tradeInit} onTradeUsed={() => setTradeInit('')} coInit={coInit} onCoUsed={() => setCoInit(false)} />}
       {tab === 2 && <Questions pid={pid} aid={aid} report={R} triage={triage} qstate={qstate} setQ={setQ} />}
       {tab === 3 && <Changes pid={pid} aid={aid} analyses={analyses} />}
     </>

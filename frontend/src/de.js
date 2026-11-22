@@ -465,4 +465,12 @@ export const DE = {
   "Items · common format": "Positionen · einheitliches Format",
   "What Calex read from each file, in one format you can edit.": "Was Calex aus jeder Datei gelesen hat, in einem einheitlichen Format, das Sie bearbeiten können.",
   "Items": "Positionen",
+  "Only likely change-order items": "Nur voraussichtliche Nachtragspositionen",
+  "Likely change-order items": "Voraussichtliche Nachtragspositionen",
+  "Items where unclear scope, optional work, work in other trades or risk shifted to you could later be paid as extras. Clarify them before you price.": "Positionen, bei denen unklarer Umfang, Bedarfsleistungen, Leistungen anderer Gewerke oder auf Sie verlagertes Risiko später als Nachtrag vergütet werden könnten. Klären Sie sie, bevor Sie kalkulieren.",
+  "No item stands out as a likely change order.": "Keine Position fällt als voraussichtlicher Nachtrag auf.",
+  "at 10 % quantity change": "bei 10 % Mengenänderung",
+  "no price": "kein Preis",
+  "Show all {n} in Findings": "Alle {n} in den Befunden anzeigen",
+  "Show in Findings": "In den Befunden anzeigen",
 }
