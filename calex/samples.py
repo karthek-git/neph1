@@ -7,7 +7,7 @@ from . import benchmarks as bm
 
 ROOT = Path(__file__).resolve().parent.parent
 SAMPLES = Path(os.getenv("CALEX_SAMPLES", ROOT / "ds"))
-EXTS = {".x83", ".x84", ".x86", ".d83", ".d84", ".d86", ".pdf"}
+EXTS = {".x83", ".x84", ".x86", ".d83", ".d84", ".d86", ".pdf", ".xlsx", ".docx"}
 _BENCH = None
 
 

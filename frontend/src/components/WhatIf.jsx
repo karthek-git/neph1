@@ -1,13 +1,8 @@
 import { useEffect, useState } from 'react'
-import {
-  Accordion, AccordionDetails, AccordionSummary, Alert, Box, Button, Chip, FormControl, FormControlLabel, InputLabel, MenuItem, Paper, Select, Stack,
-  Switch, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography, LinearProgress,
-} from '@mui/material'
-import ExpandMoreRounded from '@mui/icons-material/ExpandMoreRounded'
-import AddRounded from '@mui/icons-material/AddRounded'
 import { api } from '../api.js'
 import { useI18n } from '../i18n.jsx'
-import { ErrorBox, Kpi, KpiRow, fmt } from '../common.jsx'
+import { AssistChip, Banner, Button, ErrorBox, Icon, IconButton, Kpi, KpiRow, LinearProgress, Option, Select, Switch, TextField } from '../m3/ui.jsx'
+import { fmt } from '../common.jsx'
 
 const COMPONENTS = ['materials', 'wages', 'plant', 'other', 'price']
 const pctNum = (v) => { const x = parseFloat(String(v).replace(',', '.')); return Number.isNaN(x) ? 0 : x }
@@ -44,77 +39,63 @@ export default function WhatIf({ pid, files }) {
       }))
     } catch (e) { setError(e) } finally { setBusy(false) }
   }
-  if (!readable.length) return <Typography color="text.secondary" align="center" sx={{ py: 5 }}>{t('Upload a BoQ file first.')}</Typography>
+  if (!readable.length) return <p className="muted center" style={{ padding: 40 }}>{t('Upload a BoQ file first.')}</p>
   const sign = (n) => (n >= 0 ? '+' : '')
 
   return (
-    <Stack spacing={2}>
-      <Alert severity="info" icon={false}>
-        {t('Shows what happens to the total if prices change. Works on a priced file (bid, award, offer) or on a tender with your saved bid prices. A keyword or regex limits a change to matching items, for example a material.')}
-      </Alert>
-      <FormControl sx={{ maxWidth: 420 }}>
-        <InputLabel>{t('File')}</InputLabel>
-        <Select label={t('File')} value={fid} onChange={(e) => { setFid(e.target.value); setRes(null) }}>
-          {readable.map((f) => <MenuItem key={f.id} value={f.id}>{f.name}{f.priced ? '' : ` (${t('no prices')})`}</MenuItem>)}
-        </Select>
-      </FormControl>
-      <Box>
-        <Typography variant="subtitle2" sx={{ mb: 0.8 }}>{t('Quick scenarios')}</Typography>
-        <Stack direction="row" spacing={1} flexWrap="wrap" rowGap={1}>
-          {presets.map((p) => <Chip key={p.name} icon={<AddRounded />} label={t(p.name)} onClick={() => setSc((s) => [...s, p])} variant="outlined" clickable />)}
-        </Stack>
-      </Box>
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5}>
-        <TextField label={t('Items matching (regex, empty = all)')} value={scope} onChange={(e) => setScope(e.target.value)} sx={{ flex: 2 }} />
-        <FormControl sx={{ minWidth: 160 }}><InputLabel>{t('Cost part')}</InputLabel>
-          <Select label={t('Cost part')} value={comp} onChange={(e) => setComp(e.target.value)}>{COMPONENTS.map((c) => <MenuItem key={c} value={c}>{c === 'price' ? t('whole price') : t(c)}</MenuItem>)}</Select></FormControl>
-        <TextField label="%" value={pct} onChange={(e) => setPct(e.target.value)} sx={{ width: 90 }} />
-        <Button startIcon={<AddRounded />} onClick={addCustom}>{t('Add scenario')}</Button>
-      </Stack>
-      <Stack direction="row" spacing={1} flexWrap="wrap" rowGap={1}>
-        {sc.length === 0 && <Typography variant="body2" color="text.secondary">{t('No scenarios yet.')}</Typography>}
-        {sc.map((s, i) => <Chip key={i} label={label(s)} onDelete={() => setSc((x) => x.filter((_, j) => j !== i))} />)}
-      </Stack>
-      <Accordion variant="outlined" disableGutters sx={{ '&:before': { display: 'none' } }}>
-        <AccordionSummary expandIcon={<ExpandMoreRounded />}><Typography variant="body2">{t('Assumed cost split (used only if the file has no real split)')}</Typography></AccordionSummary>
-        <AccordionDetails>
-          <Stack direction="row" spacing={1.5}>{Object.keys(split).map((k) => <TextField key={k} label={`${t(k)} %`} value={split[k]} onChange={(e) => setSplit((s) => ({ ...s, [k]: e.target.value }))} sx={{ width: 120 }} />)}</Stack>
-        </AccordionDetails>
-      </Accordion>
-      <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
-        <FormControlLabel control={<Switch checked={optional} onChange={(e) => setOptional(e.target.checked)} />} label={t('Include optional and alternative items')} />
-        <FormControlLabel control={<Switch checked={useBid} onChange={(e) => setUseBid(e.target.checked)} />} label={t('Use my saved bid prices')} />
-        <Button variant="contained" size="large" disabled={!sc.length || busy || !fid} onClick={run}>{t('Run what-if')}</Button>
-      </Stack>
-      {busy && <LinearProgress />}
+    <div className="col">
+      <Banner>{t('Shows what happens to the total if prices change. Works on a priced file (bid, award, offer) or on a tender with your saved bid prices. A keyword or regex limits a change to matching items, for example a material.')}</Banner>
+      <Select label={t('File')} value={fid} onValue={(v) => { setFid(v); setRes(null) }} style={{ maxWidth: 420 }}>
+        {readable.map((f) => <Option key={f.id} value={f.id}>{f.name}{f.priced ? '' : ` (${t('no prices')})`}</Option>)}
+      </Select>
+      <div>
+        <div className="md-typescale-title-small mb8">{t('Quick scenarios')}</div>
+        <div className="chips">{presets.map((p) => <AssistChip key={p.name} label={t(p.name)} onClick={() => setSc((s) => [...s, p])}><Icon slot="icon" name="add" /></AssistChip>)}</div>
+      </div>
+      <div className="row">
+        <TextField label={t('Items matching (regex, empty = all)')} value={scope} onValue={setScope} style={{ flex: 2, minWidth: 240 }} />
+        <Select label={t('Cost part')} value={comp} onValue={setComp} style={{ minWidth: 170 }}>{COMPONENTS.map((c) => <Option key={c} value={c}>{c === 'price' ? t('whole price') : t(c)}</Option>)}</Select>
+        <TextField label="%" value={pct} onValue={setPct} style={{ width: 100 }} />
+        <Button variant="tonal" icon="add" onClick={addCustom}>{t('Add scenario')}</Button>
+      </div>
+      <div className="chips">
+        {sc.length === 0 && <span className="muted">{t('No scenarios yet.')}</span>}
+        {sc.map((s, i) => <span key={i} className="tag filled" style={{ height: 32 }}>{label(s)}<IconButton icon="close" label={t('Delete')} onClick={() => setSc((x) => x.filter((_, j) => j !== i))} style={{ '--md-icon-button-state-layer-size': '24px', marginRight: -6 }} /></span>)}
+      </div>
+      <details>
+        <summary className="muted">{t('Assumed cost split (used only if the file has no real split)')}</summary>
+        <div className="row mt8">{Object.keys(split).map((k) => <TextField key={k} label={`${t(k)} %`} value={split[k]} onValue={(v) => setSplit((s) => ({ ...s, [k]: v }))} style={{ width: 120 }} />)}</div>
+      </details>
+      <div className="row">
+        <label className="row gap8"><Switch selected={optional} onValue={setOptional} aria-label={t('Include optional and alternative items')} />{t('Include optional and alternative items')}</label>
+        <label className="row gap8"><Switch selected={useBid} onValue={setUseBid} aria-label={t('Use my saved bid prices')} />{t('Use my saved bid prices')}</label>
+        <Button icon="play_arrow" disabled={!sc.length || busy || !fid} onClick={run}>{t('Run what-if')}</Button>
+      </div>
+      {busy && <LinearProgress indeterminate />}
       <ErrorBox error={error} />
       {res && (
-        <Stack spacing={2}>
+        <div className="col">
           <KpiRow>
             <Kpi value={fmt(res.baseline)} label={t('Baseline (EUR)')} />
             <Kpi value={fmt(res.scenario)} label={t('Scenario (EUR)')} />
             <Kpi value={`${sign(res.delta)}${fmt(res.delta)}`} label={t('Difference (EUR)')} />
             <Kpi value={`${sign(res.delta)}${fmt(res.delta_pct)} %`} label={t('Difference')} />
           </KpiRow>
-          <Typography variant="body2" color="text.secondary">
+          <p className="muted">
             {res.scenarios.map((s) => `${s.name}: ${t('{n} items', { n: s.items_affected })}`).join(' · ')} · {t('Cost split')}: {res.split_source === 'file' ? t('from the file') : `${t('assumed')} (${Object.entries(res.split_used).map(([a, b]) => `${t(a)} ${Math.round(b * 100)} %`).join(', ')})`}
-          </Typography>
-          {res.assumptions.map((a) => <Alert key={a} severity="warning">{a}</Alert>)}
-          <TableContainer component={Paper} variant="outlined">
-            <Table size="small">
-              <TableHead><TableRow><TableCell>{t('Trade')}</TableCell><TableCell align="right">{t('Baseline')}</TableCell><TableCell align="right">{t('Difference')}</TableCell></TableRow></TableHead>
-              <TableBody>{res.by_trade.filter((x) => x.delta).map((x) => <TableRow key={x.trade}><TableCell>{x.trade}</TableCell><TableCell align="right">{fmt(x.baseline)}</TableCell><TableCell align="right">{sign(x.delta)}{fmt(x.delta)}</TableCell></TableRow>)}</TableBody>
-            </Table>
-          </TableContainer>
-          <Typography variant="h6">{t('Most affected items')}</Typography>
-          <TableContainer component={Paper} variant="outlined">
-            <Table size="small">
-              <TableHead><TableRow><TableCell>{t('Item')}</TableCell><TableCell>{t('Description')}</TableCell><TableCell align="right">{t('Baseline')}</TableCell><TableCell align="right">{t('Difference')}</TableCell></TableRow></TableHead>
-              <TableBody>{res.top_items.map((x) => <TableRow key={x.oz}><TableCell sx={{ fontWeight: 500 }}>{x.oz}</TableCell><TableCell>{x.short_text}</TableCell><TableCell align="right">{fmt(x.baseline)}</TableCell><TableCell align="right">{sign(x.delta)}{fmt(x.delta)}</TableCell></TableRow>)}</TableBody>
-            </Table>
-          </TableContainer>
-        </Stack>
+          </p>
+          {res.assumptions.map((a) => <Banner key={a} kind="warn">{a}</Banner>)}
+          <div className="tblwrap"><table className="tbl">
+            <thead><tr><th>{t('Trade')}</th><th className="right">{t('Baseline')}</th><th className="right">{t('Difference')}</th></tr></thead>
+            <tbody>{res.by_trade.filter((x) => x.delta).map((x) => <tr key={x.trade}><td>{x.trade}</td><td className="num">{fmt(x.baseline)}</td><td className="num">{sign(x.delta)}{fmt(x.delta)}</td></tr>)}</tbody>
+          </table></div>
+          <h3 className="md-typescale-title-large">{t('Most affected items')}</h3>
+          <div className="tblwrap"><table className="tbl">
+            <thead><tr><th>{t('Item')}</th><th>{t('Description')}</th><th className="right">{t('Baseline')}</th><th className="right">{t('Difference')}</th></tr></thead>
+            <tbody>{res.top_items.map((x) => <tr key={x.oz}><td style={{ fontWeight: 500 }}>{x.oz}</td><td>{x.short_text}</td><td className="num">{fmt(x.baseline)}</td><td className="num">{sign(x.delta)}{fmt(x.delta)}</td></tr>)}</tbody>
+          </table></div>
+        </div>
       )}
-    </Stack>
+    </div>
   )
 }

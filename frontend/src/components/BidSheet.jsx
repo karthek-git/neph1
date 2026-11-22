@@ -1,14 +1,8 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
-import {
-  Alert, Box, Button, Card, CircularProgress, FormControl, InputLabel, Link, MenuItem, Paper, Select, Stack, Table, TableBody, TableCell,
-  TableContainer, TableHead, TableRow, TextField, Typography,
-} from '@mui/material'
-import DownloadOutlined from '@mui/icons-material/DownloadOutlined'
-import AutoFixHighOutlined from '@mui/icons-material/AutoFixHighOutlined'
-import CheckRounded from '@mui/icons-material/CheckRounded'
 import { api, download } from '../api.js'
 import { useI18n } from '../i18n.jsx'
-import { ErrorBox, Kpi, KpiRow, SevChip, fmt } from '../common.jsx'
+import { Banner, Button, CircularProgress, ErrorBox, Kpi, KpiRow, Option, Select, TextField } from '../m3/ui.jsx'
+import { SevChip, fmt } from '../common.jsx'
 
 const num = (v) => { const x = parseFloat(String(v).replace(/\./g, '').replace(',', '.')); return Number.isNaN(x) ? null : x }
 
@@ -18,26 +12,20 @@ const Row = memo(function Row({ it, price, onPrice, t }) {
   const total = price != null && it.quantity != null ? price * it.quantity : null
   const h = it.hint
   return (
-    <TableRow hover>
-      <TableCell sx={{ whiteSpace: 'nowrap', fontWeight: 500 }}>{it.oz}</TableCell>
-      <TableCell sx={{ maxWidth: 360 }}>
-        <Typography variant="body2" noWrap title={it.short_text}>{it.short_text}</Typography>
-        {it.level !== 'none' && <SevChip level={it.level} />}
-      </TableCell>
-      <TableCell sx={{ whiteSpace: 'nowrap' }}>{it.quantity != null ? String(it.quantity).replace('.', ',') : ''} {it.unit}</TableCell>
-      <TableCell>
-        <TextField value={text} onChange={(e) => { setText(e.target.value); onPrice(it.oz, num(e.target.value)) }} inputProps={{ inputMode: 'decimal', style: { textAlign: 'right', width: 90 } }} />
-      </TableCell>
-      <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>{fmt(total)}</TableCell>
-      <TableCell sx={{ whiteSpace: 'nowrap' }}>
-        {h && (
-          <>
-            <Link component="button" underline="hover" onClick={() => onPrice(it.oz, h.median)}>{fmt(h.median)}</Link>
-            <Typography component="span" variant="caption" color="text.secondary"> ({fmt(h.low)} – {fmt(h.high)}, {h.n}×, {t(h.confidence)})</Typography>
-          </>
-        )}
-      </TableCell>
-    </TableRow>
+    <tr>
+      <td className="nowrap" style={{ fontWeight: 500 }}>{it.oz}</td>
+      <td style={{ maxWidth: 360 }}><div className="ellipsis" title={it.short_text}>{it.short_text}</div>{it.level !== 'none' && <SevChip level={it.level} />}</td>
+      <td className="nowrap">{it.quantity != null ? String(it.quantity).replace('.', ',') : ''} {it.unit}</td>
+      <td className="price">
+        <TextField value={text} onValue={(v) => { setText(v); onPrice(it.oz, num(v)) }} inputmode="decimal" aria-label={`${t('Unit price')} ${it.oz}`}
+          style={{ '--md-outlined-text-field-top-space': '8px', '--md-outlined-text-field-bottom-space': '8px' }} />
+      </td>
+      <td className="num">{fmt(total)}</td>
+      <td className="nowrap">
+        {h && <><Button variant="text" onClick={() => onPrice(it.oz, h.median)} aria-label={`${t('Use benchmark price')} ${fmt(h.median)}`}>{fmt(h.median)}</Button>
+          <span className="md-typescale-body-small muted"> ({fmt(h.low)} – {fmt(h.high)}, {h.n}×, {t(h.confidence)})</span></>}
+      </td>
+    </tr>
   )
 })
 
@@ -93,34 +81,28 @@ export default function BidSheet({ pid, files }) {
     download(await api.exportBid({ rows: out, markup_pct: num(markup) || 0 }), 'calex-bidsheet.xlsx')
   }
 
-  if (!readable.length) return <Typography color="text.secondary" align="center" sx={{ py: 5 }}>{t('Upload a BoQ file first.')}</Typography>
+  if (!readable.length) return <p className="muted center" style={{ padding: 40 }}>{t('Upload a BoQ file first.')}</p>
   return (
-    <Stack spacing={2}>
-      <Alert severity="info" icon={false}>
-        {t('Enter your unit prices (EP). Totals update live and are saved in this project. Benchmark values are indicative: they come from earlier priced files for the same or similar items and are never a quote.')}
-      </Alert>
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} alignItems={{ md: 'center' }}>
-        <FormControl sx={{ minWidth: 240 }}>
-          <InputLabel>{t('File')}</InputLabel>
-          <Select label={t('File')} value={fid} onChange={(e) => setFid(e.target.value)}>{readable.map((f) => <MenuItem key={f.id} value={f.id}>{f.name}</MenuItem>)}</Select>
-        </FormControl>
-        <Select displayEmpty value={trade} onChange={(e) => { setTrade(e.target.value); setShown(120) }} sx={{ minWidth: 180, maxWidth: 260 }}>
-          <MenuItem value="">{t('All trades')}</MenuItem>
-          {trades.map((x) => <MenuItem key={x} value={x}>{x.length > 40 ? x.slice(0, 38) + '…' : x}</MenuItem>)}
+    <div className="col">
+      <Banner>{t('Enter your unit prices (EP). Totals update live and are saved in this project. Benchmark values are indicative: they come from earlier priced files for the same or similar items and are never a quote.')}</Banner>
+      <div className="filters" style={{ marginBottom: 0 }}>
+        <Select label={t('File')} value={fid} onValue={setFid} style={{ minWidth: 240 }}>{readable.map((f) => <Option key={f.id} value={f.id}>{f.name}</Option>)}</Select>
+        <Select label={t('Trade')} value={trade} onValue={(v) => { setTrade(v); setShown(120) }}>
+          <Option value="">{t('All trades')}</Option>{trades.map((x) => <Option key={x} value={x}>{x.length > 40 ? x.slice(0, 38) + '…' : x}</Option>)}
         </Select>
-        <TextField placeholder={t('Search…')} value={q} onChange={(e) => { setQ(e.target.value); setShown(120) }} sx={{ flex: 1 }} />
-        <TextField label={t('Markup %')} value={markup} onChange={(e) => setMarkup(e.target.value)} sx={{ width: 110 }} />
-      </Stack>
-      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" rowGap={1}>
-        <Button startIcon={<AutoFixHighOutlined />} onClick={fill} disabled={!sheet}>{t('Fill empty from benchmarks')}</Button>
-        <Button onClick={reset} disabled={!sheet}>{t('Reset to file prices')}</Button>
-        <Button variant="outlined" startIcon={<DownloadOutlined />} onClick={exportXlsx} disabled={!sheet}>{t('Excel')}</Button>
-        <Box sx={{ flex: 1 }} />
-        {saved === 'saving' && <Typography variant="caption" color="text.secondary">{t('Saving…')}</Typography>}
-        {saved === 'saved' && <Typography variant="caption" color="success.main" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}><CheckRounded sx={{ fontSize: 16 }} />{t('Saved')}</Typography>}
-      </Stack>
+        <TextField label={t('Search')} placeholder={t('Search…')} value={q} onValue={(v) => { setQ(v); setShown(120) }} style={{ flex: 1, minWidth: 200 }} />
+        <TextField label={t('Markup %')} value={markup} onValue={setMarkup} style={{ width: 120 }} inputmode="decimal" />
+      </div>
+      <div className="row">
+        <Button variant="tonal" icon="auto_fix_high" onClick={fill} disabled={!sheet}>{t('Fill empty from benchmarks')}</Button>
+        <Button variant="text" onClick={reset} disabled={!sheet}>{t('Reset to file prices')}</Button>
+        <Button variant="outlined" icon="download" onClick={exportXlsx} disabled={!sheet}>{t('Excel')}</Button>
+        <span className="grow" />
+        {saved === 'saving' && <span className="md-typescale-body-small muted">{t('Saving…')}</span>}
+        {saved === 'saved' && <span className="md-typescale-body-small" style={{ color: 'var(--md-sys-color-primary)' }}>✓ {t('Saved')}</span>}
+      </div>
       <ErrorBox error={error} />
-      {!sheet && !error && <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress /></Box>}
+      {!sheet && !error && <div className="center" style={{ padding: 48 }}><CircularProgress indeterminate /></div>}
       {sheet && (
         <>
           <KpiRow>
@@ -129,18 +111,16 @@ export default function BidSheet({ pid, files }) {
             <Kpi value={fmt(totals.gross)} label={t('Total with markup (EUR)')} />
             <Kpi value={`${totals.priced} / ${items.length}`} label={t('items priced')} />
           </KpiRow>
-          <Typography variant="caption" color="text.secondary">
-            {t('Benchmarks: {m} of {c} unpriced items matched, from {h} historical priced items in {p} projects.', { m: sheet.coverage.matched, c: sheet.coverage.candidates, h: sheet.coverage.history_items, p: sheet.coverage.history_projects })}
-          </Typography>
-          <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 640 }}>
-            <Table size="small" stickyHeader>
-              <TableHead><TableRow><TableCell>{t('Item')}</TableCell><TableCell>{t('Description')}</TableCell><TableCell>{t('Qty')}</TableCell><TableCell>EP (EUR)</TableCell><TableCell align="right">{t('Total')}</TableCell><TableCell>{t('Benchmark')}</TableCell></TableRow></TableHead>
-              <TableBody>{rows.slice(0, shown).map((it) => <Row key={it.oz} it={it} price={prices[it.oz] ?? null} onPrice={setPrice} t={t} />)}</TableBody>
-            </Table>
-          </TableContainer>
-          {rows.length > shown && <Box sx={{ textAlign: 'center' }}><Button onClick={() => setShown((n) => n + 200)}>{t('Show more')} ({rows.length - shown})</Button></Box>}
+          <p className="md-typescale-body-small muted">{t('Benchmarks: {m} of {c} unpriced items matched, from {h} historical priced items in {p} projects.', { m: sheet.coverage.matched, c: sheet.coverage.candidates, h: sheet.coverage.history_items, p: sheet.coverage.history_projects })}</p>
+          <div className="tblwrap" style={{ maxHeight: 640 }}>
+            <table className="tbl">
+              <thead><tr><th>{t('Item')}</th><th>{t('Description')}</th><th>{t('Qty')}</th><th>EP (EUR)</th><th className="right">{t('Total')}</th><th>{t('Benchmark')}</th></tr></thead>
+              <tbody>{rows.slice(0, shown).map((it) => <Row key={it.oz} it={it} price={prices[it.oz] ?? null} onPrice={setPrice} t={t} />)}</tbody>
+            </table>
+          </div>
+          {rows.length > shown && <div className="center"><Button variant="text" onClick={() => setShown((n) => n + 200)}>{t('Show more')} ({rows.length - shown})</Button></div>}
         </>
       )}
-    </Stack>
+    </div>
   )
 }

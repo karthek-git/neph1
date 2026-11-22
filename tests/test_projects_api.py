@@ -135,3 +135,21 @@ def test_deleting_a_project_removes_its_files(client, tmp_path):
     assert folder.exists() and any(folder.iterdir())
     client.delete(f"/api/projects/{pid}")
     assert not folder.exists()
+
+
+def test_excel_and_word_upload_and_analysis_through_the_api(client):
+    import io
+    from openpyxl import Workbook
+    wb = Workbook(); ws = wb.active
+    for r in [["OZ", "Kurztext", "Menge", "Einheit"], ["1.1", "Aushub nach Angabe der Bauleitung", 10, "m3"], ["1.2", "Rohr DN 100 liefern und verlegen", 5, "m"],
+              ["1.3", "Beton", 3, "m3"], ["1.4", "Schalung", 3, "m2"], ["1.5", "Bewehrung", 1, "t"]]:
+        ws.append(r)
+    buf = io.BytesIO(); wb.save(buf)
+    pid = mk(client)
+    r = client.post(f"/api/projects/{pid}/files", files=[("files", ("lv.xlsx", buf.getvalue(), "application/vnd.ms-excel"))]).json()
+    f = r["files"][0]
+    assert f["items"] == 5 and f["error"] == "" and f["ext"] == "xlsx"
+    a = client.post(f"/api/projects/{pid}/analyses", json={"file_ids": [f["id"]], "use_llm": False})
+    assert a.status_code == 201 and a.json()["summary"]["items"] == 5
+    bad = client.post(f"/api/projects/{pid}/files", files=[("files", ("alt.xls", b"x", "application/vnd.ms-excel"))])
+    assert bad.status_code == 415

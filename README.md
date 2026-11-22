@@ -12,7 +12,7 @@ An estimator uploads a BoQ and gets, before pricing it:
 - a **tender-vs-award** comparison showing which items were added after the tender
 
 Built for the "AI Estimation and Bidding Assistant for Bills of Quantities" challenge.
-The UI (React + Material UI, light and dark, English and German) opens on a list of **projects**. A project holds all the files of one
+The UI is built on Google's own **Material 3** implementation (Material Web components `@material/web`, dynamic colour from `@material/material-color-utilities`, Material Symbols and the M3 type scale) with React; it has light, dark and device themes, in English and German, and opens on a list of **projects**. A project holds all the files of one
 tender; you can run analyses on any selection of its files at any time, and every analysis, bid sheet and file is saved
 (SQLite plus a `data/` folder). Analysing several files together lets the cross-trade checks see the whole set.
 
@@ -23,7 +23,9 @@ upload -> parse -> rule checks (code) -> Gemini text analysis -> dedupe + scorin
 ```
 
 - **Parsers:** GAEB XML (X83/X84/X86, versions 3.1 and 3.2), legacy GAEB 90 (D83/D84/D86, CP850 or Latin-1 detected,
-  with prices and cost split), text PDFs (via poppler's `pdftotext`) and scanned PDFs (OCR via tesseract, with a warning).
+  with prices and cost split), text PDFs (via poppler's `pdftotext`), scanned PDFs (OCR via tesseract, with a warning),
+  **Excel** (.xlsx/.xlsm: the header row with item number, description, quantity, unit and prices is detected, several sheets are read)
+  and **Word** (.docx: tables like Excel, or position lists such as `1.1.10 – Text [unit]`; a list has no quantities, which is noted in the report).
   The PDF parser reproduces the D84 of the same project exactly (274 items, identical quantities and totals).
 - **Rule checks** (`calex/checks.py`, `calex/dependencies.py`): duplicates, missing units, broken references, arithmetic,
   quantity outliers, broad lump sums, optional (Bedarf) items, German phrase lists for vague wording, cost or risk placed on

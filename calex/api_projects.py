@@ -14,7 +14,7 @@ from .samples import bench, read_sample, sample_files, SAMPLES
 from .whatif import run_whatif
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
-ALLOWED = {"x83", "x84", "x86", "d83", "d84", "d86", "xml", "pdf"}
+ALLOWED = {"x83", "x84", "x86", "d83", "d84", "d86", "xml", "pdf", "xlsx", "xlsm", "docx"}
 MAX_BYTES = 30 * 1024 * 1024
 
 

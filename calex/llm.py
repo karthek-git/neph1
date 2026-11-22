@@ -104,7 +104,7 @@ def _call(prompt: str, model: str | None = None, retries: int = 6) -> list[LLMFi
                 continue
             rate = "429" in msg or "RESOURCE_EXHAUSTED" in msg or "503" in msg or "UNAVAILABLE" in msg or "504" in msg
             time.sleep((6 if rate else 2) * (attempt + 1))
-    raise RuntimeError(f"Gemini call failed: {last}")
+    raise RuntimeError(f"AI call failed: {last}")
 
 
 def _batch_prompt(batch: list[Item], preamble: str) -> str:

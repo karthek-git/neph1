@@ -113,7 +113,7 @@ def run_checks(project: Project) -> list[Finding]:
     oz_set = {norm_oz(i.oz) for i in items}
 
     # duplicates
-    counts = Counter(norm_oz(i.oz) for i in items)
+    counts = Counter(norm_oz(i.oz) for i in items if i.kind != "alternative")   # an item may legitimately appear in several alternatives
     for oz, n in counts.items():
         if n > 1:
             f.append(Finding("duplicate", "high", oz, f"Item number occurs {n} times",

@@ -1,20 +1,9 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
-import {
-  Alert, Box, Button, Card, Chip, CircularProgress, Collapse, IconButton, MenuItem, Paper, Select, Stack, Tab, Table, TableBody, TableCell,
-  TableContainer, TableHead, TableRow, Tabs, TextField, Typography,
-} from '@mui/material'
-import ArrowBackRounded from '@mui/icons-material/ArrowBackRounded'
-import KeyboardArrowDownRounded from '@mui/icons-material/KeyboardArrowDownRounded'
-import KeyboardArrowUpRounded from '@mui/icons-material/KeyboardArrowUpRounded'
-import DownloadOutlined from '@mui/icons-material/DownloadOutlined'
-import ContentCopyOutlined from '@mui/icons-material/ContentCopyOutlined'
-import AutoAwesomeOutlined from '@mui/icons-material/AutoAwesomeOutlined'
 import { api, download } from '../api.js'
 import { go } from '../router.js'
 import { useI18n } from '../i18n.jsx'
-import { ErrorBox, Highlight, Kpi, KpiRow, SevChip, fmt, fmtDate } from '../common.jsx'
-
-const sevOrder = { high: 0, medium: 1, low: 2 }
+import { Banner, Button, CircularProgress, ErrorBox, Icon, IconButton, Kpi, KpiRow, Option, PrimaryTab, Select, TabsEl, TextField } from '../m3/ui.jsx'
+import { Highlight, SevChip, fmt, fmtDate } from '../common.jsx'
 
 function Findings({ report }) {
   const { t, lang } = useI18n()
@@ -34,82 +23,66 @@ function Findings({ report }) {
 
   return (
     <>
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} sx={{ mb: 2 }} alignItems={{ md: 'center' }}>
-        <Select displayEmpty value={sev} onChange={(e) => { setSev(e.target.value); setShown(40) }} sx={{ minWidth: 150 }}>
-          <MenuItem value="">{t('All severities')}</MenuItem>
-          {['high', 'medium', 'low'].map((s) => <MenuItem key={s} value={s}>{t(s)}</MenuItem>)}
+      <div className="filters">
+        <Select label={t('Severity')} value={sev} onValue={(v) => { setSev(v); setShown(40) }}>
+          <Option value="">{t('All severities')}</Option>
+          {['high', 'medium', 'low'].map((s) => <Option key={s} value={s}>{t(s)}</Option>)}
         </Select>
-        <Select displayEmpty value={cat} onChange={(e) => { setCat(e.target.value); setShown(40) }} sx={{ minWidth: 180 }}>
-          <MenuItem value="">{t('All categories')}</MenuItem>
-          {cats.map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
+        <Select label={t('Category')} value={cat} onValue={(v) => { setCat(v); setShown(40) }}>
+          <Option value="">{t('All categories')}</Option>
+          {cats.map((c) => <Option key={c} value={c}>{c}</Option>)}
         </Select>
-        <Select displayEmpty value={trade} onChange={(e) => { setTrade(e.target.value); setShown(40) }} sx={{ minWidth: 200, maxWidth: 280 }}>
-          <MenuItem value="">{t('All trades')}</MenuItem>
-          {trades.map((c) => <MenuItem key={c} value={c}>{c.length > 50 ? c.slice(0, 48) + '…' : c}</MenuItem>)}
+        <Select label={t('Trade')} value={trade} onValue={(v) => { setTrade(v); setShown(40) }}>
+          <Option value="">{t('All trades')}</Option>
+          {trades.map((c) => <Option key={c} value={c}>{c.length > 50 ? c.slice(0, 48) + '…' : c}</Option>)}
         </Select>
-        <TextField placeholder={t('Search item or text…')} value={q} onChange={(e) => { setQ(e.target.value); setShown(40) }} sx={{ flex: 1 }} />
-        <Typography variant="body2" color="text.secondary">{t('{n} findings', { n: rows.length })}</Typography>
-      </Stack>
-      <TableContainer component={Paper} variant="outlined">
-        <Table size="small">
-          <TableHead><TableRow><TableCell /><TableCell>{t('Severity')}</TableCell><TableCell>{t('Item')}</TableCell><TableCell>{t('Finding')}</TableCell><TableCell>{t('Category')}</TableCell></TableRow></TableHead>
-          <TableBody>
+        <TextField label={t('Search')} placeholder={t('Search item or text…')} value={q} onValue={(v) => { setQ(v); setShown(40) }} style={{ flex: 1, minWidth: 220 }}><Icon slot="leading-icon" name="search" /></TextField>
+        <span className="muted">{t('{n} findings', { n: rows.length })}</span>
+      </div>
+      <div className="tblwrap">
+        <table className="tbl">
+          <thead><tr><th style={{ width: 48 }} /><th>{t('Severity')}</th><th>{t('Item')}</th><th>{t('Finding')}</th><th>{t('Category')}</th></tr></thead>
+          <tbody>
             {rows.slice(0, shown).map((f, i) => {
               const it = items[f.oz] || {}
               const k = `${f.oz}|${f.category}|${i}`
               const expanded = open === k
               return (
                 <Fragment key={k}>
-                  <TableRow hover onClick={() => setOpen(expanded ? null : k)} sx={{ cursor: 'pointer', '& > td': { borderBottom: expanded ? 0 : undefined } }}>
-                    <TableCell padding="checkbox">{expanded ? <KeyboardArrowUpRounded /> : <KeyboardArrowDownRounded />}</TableCell>
-                    <TableCell><SevChip level={f.severity} /></TableCell>
-                    <TableCell sx={{ maxWidth: 220 }}>
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>{f.oz}</Typography>
-                      <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>{(it.short_text || '').slice(0, 60)}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">
-                        {lang === 'de' && f.message_de ? f.message_de : f.message}{' '}
-                        {f.source === 'llm' && <Chip size="small" variant="outlined" icon={<AutoAwesomeOutlined />} label="Gemini" sx={{ ml: 0.5, height: 20 }} />}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>{(f.quote || '').slice(0, 140)}</Typography>
-                    </TableCell>
-                    <TableCell><Typography variant="caption">{label(f)}</Typography></TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell colSpan={5} sx={{ py: 0, border: expanded ? undefined : 0 }}>
-                      <Collapse in={expanded} timeout="auto" unmountOnExit>
-                        <Box sx={{ py: 1.5 }}>
-                          <Typography variant="caption" color="text.secondary">
-                            {[it.trade, it.section].filter(Boolean).join(' › ')} {it.quantity != null && `· ${it.quantity} ${it.unit || ''}`} {it.kind && `· ${it.kind}`}
-                            {it.unit_price != null && ` · EP ${fmt(it.unit_price)} · GP ${fmt(it.total_price)}`}
-                          </Typography>
-                          <Box component="pre" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'ui-monospace, Menlo, Consolas, monospace', fontSize: 13, my: 1, maxHeight: 260, overflow: 'auto' }}>
-                            <Highlight text={it.text} quote={f.quote} />
-                          </Box>
-                          {f.question && (
-                            <Typography variant="body2">
-                              <b>{t('Draft question')}:</b> {lang === 'en' && f.question_en ? f.question_en : f.question}
-                              {lang === 'en' && f.question_en && <Typography component="div" variant="caption" color="text.secondary">DE: {f.question}</Typography>}
-                            </Typography>
-                          )}
-                          {it.price_hint && (
-                            <Typography variant="body2" sx={{ mt: 0.8 }}>
-                              <b>{t('Price benchmark (indicative)')}:</b> {fmt(it.price_hint.median)} EUR / {it.unit || t('unit')} ({fmt(it.price_hint.low)} – {fmt(it.price_hint.high)}, {t('{n} similar items', { n: it.price_hint.n })}, {it.price_hint.confidence})
-                            </Typography>
-                          )}
-                        </Box>
-                      </Collapse>
-                    </TableCell>
-                  </TableRow>
+                  <tr className="hov" onClick={() => setOpen(expanded ? null : k)} aria-expanded={expanded}>
+                    <td><Icon name={expanded ? 'keyboard_arrow_up' : 'keyboard_arrow_down'} /></td>
+                    <td><SevChip level={f.severity} /></td>
+                    <td style={{ maxWidth: 220 }}><div style={{ fontWeight: 500 }}>{f.oz}</div><div className="md-typescale-body-small muted ellipsis">{(it.short_text || '').slice(0, 60)}</div></td>
+                    <td>
+                      <div>{lang === 'de' && f.message_de ? f.message_de : f.message} {f.source === 'llm' && <span className="tag" style={{ height: 20 }}><Icon name="auto_awesome" />AI</span>}</div>
+                      <div className="md-typescale-body-small muted">{(f.quote || '').slice(0, 140)}</div>
+                    </td>
+                    <td className="md-typescale-body-small">{label(f)}</td>
+                  </tr>
+                  {expanded && (
+                    <tr className="detail"><td colSpan={5}>
+                      <div className="md-typescale-body-small muted">
+                        {[it.trade, it.section].filter(Boolean).join(' › ')} {it.quantity != null && `· ${it.quantity} ${it.unit || ''}`} {it.kind && `· ${it.kind}`}
+                        {it.unit_price != null && ` · EP ${fmt(it.unit_price)} · GP ${fmt(it.total_price)}`}
+                      </div>
+                      <pre className="txt"><Highlight text={it.text} quote={f.quote} /></pre>
+                      {f.question && (
+                        <p><b>{t('Draft question')}:</b> {lang === 'en' && f.question_en ? f.question_en : f.question}
+                          {lang === 'en' && f.question_en && <span className="md-typescale-body-small muted" style={{ display: 'block' }}>DE: {f.question}</span>}</p>
+                      )}
+                      {it.price_hint && (
+                        <p className="mt8"><b>{t('Price benchmark (indicative)')}:</b> {fmt(it.price_hint.median)} EUR / {it.unit || t('unit')} ({fmt(it.price_hint.low)} – {fmt(it.price_hint.high)}, {t('{n} similar items', { n: it.price_hint.n })}, {it.price_hint.confidence})</p>
+                      )}
+                    </td></tr>
+                  )}
                 </Fragment>
               )
             })}
-          </TableBody>
-        </Table>
-      </TableContainer>
-      {rows.length > shown && <Box sx={{ textAlign: 'center', mt: 1.5 }}><Button onClick={() => setShown((n) => n + 80)}>{t('Show more')}</Button></Box>}
-      {rows.length === 0 && <Typography color="text.secondary" align="center" sx={{ py: 4 }}>{t('No findings match these filters.')}</Typography>}
+          </tbody>
+        </table>
+      </div>
+      {rows.length > shown && <div className="center mt16"><Button variant="text" onClick={() => setShown((n) => n + 80)}>{t('Show more')}</Button></div>}
+      {rows.length === 0 && <p className="muted center" style={{ padding: 32 }}>{t('No findings match these filters.')}</p>}
     </>
   )
 }
@@ -126,31 +99,26 @@ function Questions({ report }) {
   let cur = null
   return (
     <>
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} alignItems={{ md: 'center' }} sx={{ mb: 2 }}>
-        <Alert severity="info" icon={false} sx={{ flex: 1 }}>
-          {t('Drafts for the question phase of the tender. Review and edit before sending. Answers go to all bidders, so do not add prices or strategy. Calex never sends anything.')}
-        </Alert>
-        <Stack direction="row" spacing={1} flexWrap="wrap" rowGap={1}>
-          <Button startIcon={<ContentCopyOutlined />} onClick={async () => { await navigator.clipboard.writeText(text()); setCopied(true); setTimeout(() => setCopied(false), 1500) }}>{copied ? t('Copied') : t('Copy (DE)')}</Button>
-          <Button startIcon={<DownloadOutlined />} onClick={() => download(text(), 'calex-bieterfragen.txt')}>.txt</Button>
-          <Button startIcon={<DownloadOutlined />} onClick={() => download(csv(), 'calex-bieterfragen.csv', 'text/csv;charset=utf-8')}>.csv</Button>
-        </Stack>
-      </Stack>
-      {Q.length === 0 && <Typography color="text.secondary" align="center" sx={{ py: 4 }}>{t('No high or medium findings, so no questions to ask.')}</Typography>}
+      <div className="row mb16">
+        <div className="banner grow" style={{ margin: 0 }}>{t('Drafts for the question phase of the tender. Review and edit before sending. Answers go to all bidders, so do not add prices or strategy. Calex never sends anything.')}</div>
+        <Button variant="outlined" icon="content_copy" onClick={async () => { await navigator.clipboard.writeText(text()); setCopied(true); setTimeout(() => setCopied(false), 1500) }}>{copied ? t('Copied') : t('Copy (DE)')}</Button>
+        <Button variant="outlined" icon="download" onClick={() => download(text(), 'calex-bieterfragen.txt')}>.txt</Button>
+        <Button variant="outlined" icon="download" onClick={() => download(csv(), 'calex-bieterfragen.csv', 'text/csv;charset=utf-8')}>.csv</Button>
+      </div>
+      {Q.length === 0 && <p className="muted center" style={{ padding: 32 }}>{t('No high or medium findings, so no questions to ask.')}</p>}
       {Q.map((q) => {
-        const head = q.trade !== cur ? (cur = q.trade, <Typography key={`h${q.no}`} variant="h6" sx={{ mt: 2.5, mb: 1 }}>{q.trade}</Typography>) : null
+        const head = q.trade !== cur ? (cur = q.trade, <h3 key={`h${q.no}`} className="md-typescale-title-medium" style={{ margin: '20px 0 8px' }}>{q.trade}</h3>) : null
         return (
           <Fragment key={q.no}>
             {head}
-            <Card sx={{ p: 1.5, mb: 1 }}>
-              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }} flexWrap="wrap">
-                <Typography variant="body2" sx={{ fontWeight: 700 }}>{q.no}</Typography>
-                <SevChip level={q.severity} />
-                <Typography variant="caption" color="text.secondary">{lang === 'de' && q.category_de ? q.category_de : q.category} · {t('Item')} {q.oz}</Typography>
-              </Stack>
-              <Typography>{lang === 'en' && q.question_en ? q.question_en : q.question}</Typography>
-              {lang === 'en' && q.question_en && <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>{t('German version to send')}: {q.question}</Typography>}
-            </Card>
+            <div className="card" style={{ marginBottom: 8, padding: 12 }}>
+              <div className="row gap8 mb8">
+                <b>{q.no}</b><SevChip level={q.severity} />
+                <span className="md-typescale-body-small muted">{lang === 'de' && q.category_de ? q.category_de : q.category} · {t('Item')} {q.oz}</span>
+              </div>
+              <div>{lang === 'en' && q.question_en ? q.question_en : q.question}</div>
+              {lang === 'en' && q.question_en && <div className="md-typescale-body-small muted mt8">{t('German version to send')}: {q.question}</div>}
+            </div>
           </Fragment>
         )
       })}
@@ -162,27 +130,27 @@ export default function ReportView({ pid, aid }) {
   const { t, lang } = useI18n()
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
-  const [tab, setTab] = useState('findings')
+  const [tab, setTab] = useState(0)
   useEffect(() => { setData(null); api.analyses.get(pid, aid).then(setData).catch(setError) }, [pid, aid])
-  if (error) return <><ErrorBox error={error} /><Button startIcon={<ArrowBackRounded />} onClick={() => go('p', pid, 'analyses')}>{t('Analyses')}</Button></>
-  if (!data) return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
+  if (error) return <><ErrorBox error={error} /><Button variant="text" icon="arrow_back" onClick={() => go('p', pid, 'analyses')}>{t('Analyses')}</Button></>
+  if (!data) return <div className="center" style={{ padding: 64 }}><CircularProgress indeterminate /></div>
   const { meta, report: R } = data
   const S = R.summary, L = R.llm, B = R.benchmarks
   const exportXlsx = async () => download(await api.exportReport(R), 'calex-report.xlsx')
 
   return (
     <>
-      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
-        <IconButton onClick={() => go('p', pid, 'analyses')} aria-label={t('Analyses')}><ArrowBackRounded /></IconButton>
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Stack direction="row" spacing={1.2} alignItems="center" flexWrap="wrap">
-            <Typography variant="h5" noWrap>{meta.title}</Typography>
-            <Typography variant="body2" color="text.secondary">{t('Overall risk')}</Typography><SevChip level={S.overall} size="medium" />
-          </Stack>
-          <Typography variant="body2" color="text.secondary">{fmtDate(meta.created)} · {(R.files || []).map((f) => f.name).join(', ')} · {t('{n} items', { n: R.project.items })}{R.project.total_price ? ` · ${fmt(R.project.total_price)} EUR` : ''}</Typography>
-        </Box>
-        <Button variant="outlined" startIcon={<DownloadOutlined />} onClick={exportXlsx}>{t('Excel report')}</Button>
-      </Stack>
+      <div className="row mb16" style={{ flexWrap: 'nowrap' }}>
+        <IconButton icon="arrow_back" label={t('Analyses')} onClick={() => go('p', pid, 'analyses')} />
+        <div className="grow">
+          <div className="row gap8">
+            <h2 className="md-typescale-headline-small ellipsis">{meta.title}</h2>
+            <span className="muted">{t('Overall risk')}</span><SevChip level={S.overall} />
+          </div>
+          <p className="md-typescale-body-medium muted">{fmtDate(meta.created)} · {(R.files || []).map((f) => f.name).join(', ')} · {t('{n} items', { n: R.project.items })}{R.project.total_price ? ` · ${fmt(R.project.total_price)} EUR` : ''}</p>
+        </div>
+        <Button variant="outlined" icon="download" onClick={exportXlsx}>{t('Excel report')}</Button>
+      </div>
 
       <KpiRow>
         <Kpi value={S.findings} label={t('findings')} />
@@ -193,21 +161,19 @@ export default function ReportView({ pid, aid }) {
         {B?.coverage?.matched > 0 && <Kpi value={`${B.coverage.matched} / ${B.coverage.candidates}`} label={t('items with price benchmark')} />}
       </KpiRow>
 
-      {L.status === 'ok' && <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>{t('Gemini added {n} findings, each checked against the item text.', { n: L.findings })}</Typography>}
-      {L.status === 'no_key' && <Alert severity="warning" sx={{ mt: 1.5 }}>{t('No Gemini key is set on the server, so only the rule-based checks ran.')}</Alert>}
-      {(L.status === 'partial' || L.status === 'failed') && <Alert severity="warning" sx={{ mt: 1.5 }}>{t('Gemini did not fully run')}: {(L.errors || []).join(' | ').slice(0, 300)}</Alert>}
-      {(R.project.notes || []).map((n, i) => <Alert key={i} severity="warning" sx={{ mt: 1.5 }}>{n}</Alert>)}
+      {L.status === 'ok' && <p className="md-typescale-body-medium muted mt16">{t('AI added {n} findings, each checked against the item text.', { n: L.findings })}</p>}
+      {L.status === 'no_key' && <Banner kind="warn">{t('No AI key is set on the server, so only the rule-based checks ran.')}</Banner>}
+      {(L.status === 'partial' || L.status === 'failed') && <Banner kind="warn">{t('AI analysis did not fully run')}: {(L.errors || []).join(' | ').slice(0, 300)}</Banner>}
+      {(R.project.notes || []).map((n, i) => <Banner key={i} kind="warn">{n}</Banner>)}
       {S.repeated_patterns?.length > 0 && (
-        <Alert severity="info" icon={false} sx={{ mt: 1.5 }}>
-          {t('Repeated wording (asked about once, not item by item)')}: {S.repeated_patterns.map((p) => `${lang === 'de' && p.message_de ? p.message_de : p.message} (${p.items})`).join(' · ')}
-        </Alert>
+        <Banner>{t('Repeated wording (asked about once, not item by item)')}: {S.repeated_patterns.map((p) => `${lang === 'de' && p.message_de ? p.message_de : p.message} (${p.items})`).join(' · ')}</Banner>
       )}
 
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ borderBottom: 1, borderColor: 'divider', my: 2 }}>
-        <Tab value="findings" label={`${t('Findings')} (${R.findings.length})`} />
-        <Tab value="questions" label={`${t('Bidder questions')} (${R.questions.length})`} />
-      </Tabs>
-      {tab === 'findings' ? <Findings report={R} /> : <Questions report={R} />}
+      <TabsEl activeTabIndex={tab} onChange={(e) => setTab(e.target.activeTabIndex)} style={{ margin: '16px 0' }}>
+        <PrimaryTab>{`${t('Findings')} (${R.findings.length})`}</PrimaryTab>
+        <PrimaryTab>{`${t('Bidder questions')} (${R.questions.length})`}</PrimaryTab>
+      </TabsEl>
+      {tab === 0 ? <Findings report={R} /> : <Questions report={R} />}
     </>
   )
 }

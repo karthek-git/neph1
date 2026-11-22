@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, TextField } from '@mui/material'
 import { api } from '../api.js'
 import { useI18n } from '../i18n.jsx'
-import { ErrorBox } from '../common.jsx'
+import { Button, Dialog, ErrorBox, TextField } from '../m3/ui.jsx'
 
 export default function EditProjectDialog({ open, project, onClose, onSaved }) {
   const { t } = useI18n()
@@ -15,19 +14,13 @@ export default function EditProjectDialog({ open, project, onClose, onSaved }) {
     try { onSaved(await api.projects.patch(project.id, { name: name.trim(), description })) } catch (e) { setError(e) }
   }
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>{t('Rename project')}</DialogTitle>
-      <DialogContent>
-        <Stack spacing={2} sx={{ mt: 1 }}>
-          <TextField autoFocus required label={t('Project name')} value={name} onChange={(e) => setName(e.target.value)} />
-          <TextField label={t('Description (optional)')} value={description} onChange={(e) => setDescription(e.target.value)} multiline minRows={2} />
-        </Stack>
-        <ErrorBox error={error} />
-      </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={onClose}>{t('Cancel')}</Button>
-        <Button variant="contained" onClick={save}>{t('Save')}</Button>
-      </DialogActions>
+    <Dialog open={open} onClose={onClose} title={t('Rename project')}
+      actions={<><Button variant="text" onClick={onClose}>{t('Cancel')}</Button><Button variant="text" onClick={save}>{t('Save')}</Button></>}>
+      <div className="col" style={{ gap: 16 }}>
+        <TextField label={t('Project name')} required value={name} onValue={setName} style={{ width: '100%' }} />
+        <TextField label={t('Description (optional)')} type="textarea" rows={3} value={description} onValue={setDescription} style={{ width: '100%' }} />
+      </div>
+      <ErrorBox error={error} />
     </Dialog>
   )
 }
